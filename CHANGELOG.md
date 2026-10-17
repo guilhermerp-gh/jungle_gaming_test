@@ -7,6 +7,40 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [0.6.0] - 17-10-2026
+
+### Resumo Executivo
+
+A versão 0.6.0 traz processamento de apostas ainda mais confiável e protegido em segundo plano, garantindo que mesmo em picos de jogos ou oscilações de conexão nenhuma aposta se perca e nenhum valor seja cobrado duas vezes. O sistema agora conta com um receptor inteligente que reconhece transações repetidas instantaneamente e isola apostas com dados inválidos para manter a fila sempre rápida e fluida para os demais jogadores. Além disso, a versão estreia uma Central de Navegação completa e um novo Console de Testes com visual moderno no navegador, facilitando a visualização dos recursos e a experimentação das operações com respostas e tempos de execução em tempo real.
+
+### ✨ Adicionado
+- Consumidor SQS FIFO em background `WagerTransactionsConsumerWorker` para ingestão assíncrona de apostas da fila `wager-transactions.fifo` (`APP_ROLE=all|consumer`).
+- Implementação do Inbox Pattern com `MessageProcessingContext` e deduplicação atômica no `ProcessWagerTransactionUseCase`, protegendo contra reentregas pós-commit.
+- Detecção e isolamento de mensagens corrompidas (*poison pills*) com envio automático para a Dead Letter Queue (`wager-transactions-dlq.fifo`).
+- Métricas Prometheus de consumo SQS (`SqsConsumerMetrics`): `sqs_messages_consumed_total`, `sqs_processing_duration_seconds` e `dlq_messages_total`.
+- Central de Navegação Web (`GET /`) e Console Interativo de Testes de API (`GET /docs`) desenvolvidos em arquitetura Glassmorphic.
+- Guia rápido retrátil no Swagger UI (`GET /api/docs`) e botão Authorize enriquecido com tooltip informativo.
+- 11 novos testes automatizados (6 unitários e 5 de integração ponta a ponta com PostgreSQL e LocalStack SQS reais), expandindo a suíte para 97 testes.
+
+### 🔄 Modificado
+- Extração da configuração Swagger do bootstrap da aplicação para o módulo dedicado `src/interfaces/http/swagger/swagger.config.ts`, tornando `main.ts` enxuto.
+- Padronização das interfaces visuais da camada HTTP com o sufixo arquitetural `.view.ts` (`api-docs.view.ts`, `metrics-dashboard.view.ts`, `portal-landing.view.ts`).
+- [README.md](./README.md) e workflow `run-tests.md` atualizados com as rotas dos portais web e os 97 testes automatizados.
+- Versão do projeto atualizada para `0.6.0` em `package.json`.
+
+### 🐛 Corrigido
+- Tratamento de rejeições contábeis de negócio (`INSUFFICIENT_FUNDS`, etc.): confirmação (`ack`) no SQS para evitar loops infinitos de retentativa para transações já auditadas.
+- Desligamento gracioso (*Graceful Shutdown*): devolução de visibilidade imediata (`VisibilityTimeout: 0`) para mensagens não concluídas durante a drenagem do worker em `SIGTERM`.
+
+### 🧪 Sugestões de Testes
+- Executar a validação completa de qualidade: `bun run check` (Lint Money + Typecheck + ESLint + 97 testes).
+- Executar os testes de integração do consumidor SQS: `bun test test/integration/sqs-consumer.integration.test.ts`.
+- Acessar o Portal Principal em `http://localhost:3000/` e navegar entre o Console de Docs (`/docs`), Swagger UI (`/api/docs`) e o Dashboard de Métricas (`/dashboard`).
+
+📄 [Notas detalhadas da versão](./docs/releases/00.06/00.06.00.md)
+
+---
+
 ## [0.5.0] - 17-10-2026
 
 ### Resumo Executivo

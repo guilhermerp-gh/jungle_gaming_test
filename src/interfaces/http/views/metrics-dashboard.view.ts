@@ -1,4 +1,4 @@
-export function renderMetricsDashboardHtml(): string {
+export function renderMetricsDashboardView(): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -443,49 +443,44 @@ export function renderMetricsDashboardHtml(): string {
           <span class="card-icon">📦</span>
         </div>
         <div id="metric-published-total" class="card-value">0</div>
-        <p class="card-desc">Total de eventos despachados com sucesso para o AWS SQS FIFO.</p>
+        <p class="card-desc">Total de eventos despachados para a fila SQS FIFO <code>wallet-events.fifo</code>.</p>
         <div class="card-meta" style="color: #a78bfa;">
           <span>✓</span> <span>At-Least-Once Delivery</span>
         </div>
       </div>
 
-      <!-- Erros de Publicação -->
-      <div class="card card-errors">
+      <!-- SQS Consumidas -->
+      <div class="card card-published">
         <div class="card-header">
-          <span class="card-title">Falhas de Envio</span>
-          <span class="card-icon">🛡️</span>
+          <span class="card-title">SQS Consumidas</span>
+          <span class="card-icon">📥</span>
         </div>
-        <div id="metric-errors-total" class="card-value">0</div>
-        <p class="card-desc">Erros transitórios de rede capturados e reagendados com backoff exponencial.</p>
-        <div id="error-status" class="card-meta">
-          <span>●</span> <span>Taxa de sucesso: 100%</span>
+        <div id="metric-consumed-total" class="card-value">0</div>
+        <p class="card-desc">Apostas consumidas de <code>wager-transactions.fifo</code> via Inbox Pattern.</p>
+        <div id="consumed-meta" class="card-meta" style="color: #38bdf8;">
+          <span>✓</span> <span>Idempotência Atômica</span>
         </div>
       </div>
 
-      <!-- Arquitetura & Garantias -->
-      <div class="card card-pipeline">
+      <!-- DLQ / Poison Pills -->
+      <div class="card card-errors">
         <div class="card-header">
-          <span class="card-title">Garantias Distribuídas</span>
-          <span class="card-icon">⚡</span>
+          <span class="card-title">Dead Letter Queue (DLQ)</span>
+          <span class="card-icon">💀</span>
         </div>
-        <div class="specs-pill">
-          <div class="pill">Lock: <span>SKIP LOCKED</span></div>
-          <div class="pill">Lease: <span>30s Timeout</span></div>
-          <div class="pill">SQS: <span>wallet-events.fifo</span></div>
-          <div class="pill">Ordering: <span>aggregateId</span></div>
-        </div>
-        <p class="card-desc">Zero concorrência entre instâncias e blindagem contra falhas.</p>
-        <div class="card-meta" style="color: #38bdf8;">
-          <span>🛡️</span> <span>PostgreSQL 16 + LocalStack</span>
+        <div id="metric-dlq-total" class="card-value">0</div>
+        <p class="card-desc">Mensagens inválidas ou não processáveis enviadas para <code>wager-transactions-dlq.fifo</code>.</p>
+        <div id="dlq-status" class="card-meta">
+          <span>●</span> <span>Zero mensagens corrompidas</span>
         </div>
       </div>
     </section>
 
-    <!-- Detalhamento por Tipo de Evento -->
+    <!-- Detalhamento por Tipo de Evento e Consumo -->
     <section class="section-card">
       <div class="section-header">
         <h2 class="section-title">
-          <span>📊</span> Detalhamento de Eventos no SQS FIFO
+          <span>📊</span> Detalhamento de Eventos no SQS FIFO (Outbox & Consumer)
         </h2>
         <div class="refresh-status">
           <span>Última leitura:</span>
@@ -496,16 +491,17 @@ export function renderMetricsDashboardHtml(): string {
       <table class="events-table">
         <thead>
           <tr>
-            <th>Tipo do Evento (Event Type)</th>
-            <th>Fila Destino</th>
-            <th>Total Publicado</th>
-            <th>Status</th>
+            <th>Tipo / Origem</th>
+            <th>Fila SQS</th>
+            <th>Métrica / Operação</th>
+            <th>Contagem</th>
+            <th>Garantia</th>
           </tr>
         </thead>
         <tbody id="events-tbody">
           <tr>
-            <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 24px;">
-              Carregando métricas da outbox...
+            <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">
+              Carregando métricas da outbox e consumidor...
             </td>
           </tr>
         </tbody>
@@ -513,7 +509,7 @@ export function renderMetricsDashboardHtml(): string {
     </section>
 
     <footer>
-      Jungle Gaming Technical Test • Distributed Wagering Processor • Fase 5 (v0.5.0)
+      Jungle Gaming Technical Test • Distributed Wagering Processor • Fase 6: SQS Consumer & Inbox Pattern (v0.6.0)
     </footer>
   </div>
 
@@ -577,40 +573,58 @@ export function renderMetricsDashboardHtml(): string {
           totalPublished += item.value;
           eventRows.push({
             type: item.labels?.event_type || 'Desconhecido',
-            count: item.value
+            queue: 'wallet-events.fifo',
+            count: item.value,
+            category: 'PUBLISHED',
           });
         }
       }
       document.getElementById('metric-published-total').textContent = totalPublished;
 
-      // 3. Errors Total
-      const errMetric = metrics.find(m => m.name === 'outbox_publish_errors_total');
-      let totalErrors = 0;
-      if (errMetric && errMetric.values) {
-        for (const item of errMetric.values) {
-          totalErrors += item.value;
+      // 3. Consumed Total
+      const consumedMetric = metrics.find(m => m.name === 'sqs_messages_consumed_total');
+      let totalConsumed = 0;
+      if (consumedMetric && consumedMetric.values) {
+        for (const item of consumedMetric.values) {
+          totalConsumed += item.value;
+          eventRows.push({
+            type: 'Wager Transaction (' + (item.labels?.status || 'processed') + ')',
+            queue: 'wager-transactions.fifo',
+            count: item.value,
+            category: 'CONSUMED',
+          });
         }
       }
-      const errElem = document.getElementById('metric-errors-total');
-      errElem.textContent = totalErrors;
-      const errStatus = document.getElementById('error-status');
-      if (totalErrors === 0) {
-        errElem.style.color = '#34d399';
-        errStatus.innerHTML = '<span>●</span> <span>Taxa de sucesso: 100%</span>';
-        errStatus.style.color = '#34d399';
+      document.getElementById('metric-consumed-total').textContent = totalConsumed;
+
+      // 4. DLQ Total
+      const dlqMetric = metrics.find(m => m.name === 'dlq_messages_total');
+      let totalDlq = 0;
+      if (dlqMetric && dlqMetric.values) {
+        for (const item of dlqMetric.values) {
+          totalDlq += item.value;
+        }
+      }
+      const dlqElem = document.getElementById('metric-dlq-total');
+      dlqElem.textContent = totalDlq;
+      const dlqStatus = document.getElementById('dlq-status');
+      if (totalDlq === 0) {
+        dlqElem.style.color = '#34d399';
+        dlqStatus.innerHTML = '<span>●</span> <span>Zero mensagens corrompidas</span>';
+        dlqStatus.style.color = '#34d399';
       } else {
-        errElem.style.color = '#f43f5e';
-        errStatus.innerHTML = '<span>⚠️</span> <span>Retentativas acionadas</span>';
-        errStatus.style.color = '#f43f5e';
+        dlqElem.style.color = '#f43f5e';
+        dlqStatus.innerHTML = '<span>⚠️</span> <span>Poison pills isoladas na DLQ</span>';
+        dlqStatus.style.color = '#f43f5e';
       }
 
-      // 4. Detalhamento na Tabela
+      // 5. Detalhamento na Tabela
       const tbody = document.getElementById('events-tbody');
       if (eventRows.length === 0) {
         tbody.innerHTML = \`
           <tr>
-            <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 24px;">
-              Nenhum evento financeiro gerado ainda. Execute uma aposta no Swagger para ver a publicação em tempo real!
+            <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">
+              Nenhum evento financeiro gerado ou consumido ainda. Submeta uma aposta no Swagger ou na fila SQS!
             </td>
           </tr>
         \`;
@@ -618,8 +632,9 @@ export function renderMetricsDashboardHtml(): string {
         tbody.innerHTML = eventRows.map(ev => {
           let chipClass = 'chip-purple';
           if (ev.type.includes('Balance')) chipClass = 'chip-blue';
-          if (ev.type.includes('Processed') || ev.type.includes('Accepted')) chipClass = 'chip-green';
-          if (ev.type.includes('Rejected')) chipClass = 'chip-amber';
+          if (ev.type.includes('Processed') || ev.type.includes('success')) chipClass = 'chip-green';
+          if (ev.type.includes('Rejected') || ev.type.includes('rejection')) chipClass = 'chip-amber';
+          if (ev.type.includes('poison') || ev.type.includes('error')) chipClass = 'chip-rose';
 
           return \`
             <tr>
@@ -629,14 +644,17 @@ export function renderMetricsDashboardHtml(): string {
                 </span>
               </td>
               <td style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #94a3b8;">
-                wallet-events.fifo
+                \${ev.queue}
+              </td>
+              <td style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #cbd5e1;">
+                \${ev.category}
               </td>
               <td style="font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; color: white;">
                 \${ev.count}
               </td>
               <td>
                 <span class="badge-live" style="background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.2); color: #34d399;">
-                  DELIVERED
+                  PROCESSED
                 </span>
               </td>
             </tr>

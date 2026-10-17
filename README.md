@@ -38,13 +38,12 @@ Antes de iniciar, certifique-se de ter instalado em sua máquina:
    bun run dev
    ```
 
-4. **Documentação Interativa Swagger / OpenAPI:**
-   Com o servidor ativo, acesse pelo navegador para explorar e testar todos os endpoints visualmente:
-   👉 **http://localhost:3000/api/docs**
-
-5. **Dashboard Visual de Métricas & Outbox Observer:**
-   Acompanhe ao vivo o processamento e publicação de eventos na fila SQS FIFO e métricas Prometheus:
-   👉 **http://localhost:3000/metrics** *(ou http://localhost:3000/dashboard)*
+4. **Portais Web e Documentação Interativa:**
+   Com o servidor ativo, acesse pelo navegador:
+   * 🏠 **Portal Principal de Navegação:** 👉 **http://localhost:3000/**
+   * 📚 **API Documentation & Explorer (Glassmorphic):** 👉 **http://localhost:3000/docs**
+   * ⚡ **Swagger UI Clássico (OpenAPI 3.0):** 👉 **http://localhost:3000/api/docs**
+   * 📊 **Dashboard de Métricas & Observabilidade em Tempo Real:** 👉 **http://localhost:3000/dashboard** *(ou /metrics)*
 
    #### 🕹️ Ordem de Execução Recomendada (Passo a Passo Interativo):
    1. **`POST /wallets`**: Crie uma carteira com saldo inicial (ex.: R$ 100,00). Copie o `id` da carteira retornado.
@@ -54,7 +53,7 @@ Antes de iniciar, certifique-se de ter instalado em sua máquina:
    5. **`POST /transactions`**: Credite um prêmio `WIN` de R$ 50,00 com nova chave (`req-002`), elevando o saldo para R$ 120,00.
    6. **`GET /wallets/{id}/ledger`**: Obtenha o extrato contábil paginado com o histórico de todos os lançamentos.
    7. **`POST /wallets/{id}/reconciliation`**: Dispare a reconciliação matemática da carteira para comprovar que `consistent: true` e `difference: "0.00"`.
-   8. **`GET /metrics`**: Acesse o painel de métricas para conferir os eventos entregues no SQS FIFO (`events_published_total`) e o lag da outbox zerado (`outbox_lag_seconds`).
+   8. **`GET /dashboard`**: Acesse o painel de métricas para conferir os eventos entregues no SQS FIFO (`events_published_total`), o lag da outbox zerado (`outbox_lag_seconds`) e as mensagens consumidas pelo worker SQS FIFO com Inbox deduplication (`sqs_messages_consumed_total`).
 
 ---
 
@@ -63,7 +62,7 @@ Antes de iniciar, certifique-se de ter instalado em sua máquina:
 O projeto conta com validações estritas de tipagem, regras financeiras e testes automatizados organizados em pirâmide fail-fast:
 
 ### 🚀 Validação Completa de Ponta a Ponta (Recomendado)
-Executa a validação completa em ordem Fail-Fast: **Lint Money $\rightarrow$ Typecheck $\rightarrow$ Todos os 86 Testes Automatizados**:
+Executa a validação completa em ordem Fail-Fast: **Lint Money $\rightarrow$ Typecheck $\rightarrow$ Todos os 97 Testes Automatizados**:
 ```bash
 bun run test:all
 ```
@@ -79,7 +78,7 @@ bun run test:all
   ```
 
 * **1. Testes de Integração (PostgreSQL Real, API HTTP e LocalStack SQS FIFO):**
-  Executa 32 testes cobrindo locks pessimistas (`SELECT ... FOR UPDATE`), triggers de imutabilidade do ledger, integridade de saldo, reversão única, endpoints HTTP E2E e o Transactional Outbox Publisher (`wallet-events.fifo`, concorrência com `SKIP LOCKED` e crash recovery):
+  Executa 37 testes cobrindo locks pessimistas (`SELECT ... FOR UPDATE`), triggers de imutabilidade do ledger, integridade de saldo, reversão única, endpoints HTTP E2E, Transactional Outbox Publisher (`wallet-events.fifo`) e SQS Consumer Worker com Inbox Pattern (`wager-transactions.fifo`, deduplicação atômica, poison pill com DLQ e graceful shutdown):
   ```bash
   bun run test:integration
   ```
@@ -90,8 +89,8 @@ bun run test:all
   bun run test:concurrency
   ```
 
-* **3. Testes Unitários de Domínio, Casos de Uso e Mensageria:**
-  Executa 47 testes de regras de negócio, casos de uso de aplicação, máquina de estados das transações, publicador SQS FIFO, retentativas com backoff exponencial e aritmética do objeto `Money`:
+* **3. Testes Unitários de Domínio, Casos de Uso, Mensageria e Consumers:**
+  Executa 53 testes de regras de negócio, casos de uso de aplicação, máquina de estados das transações, publicador SQS FIFO, consumidor SQS com Inbox Pattern e DLQ, retentativas com backoff exponencial e aritmética do objeto `Money`:
   ```bash
   bun run test
   ```

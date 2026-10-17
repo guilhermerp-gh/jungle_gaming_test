@@ -8,6 +8,7 @@ const schema = z.object({
   AWS_REGION: z.string().default("us-east-1"),
   WAGER_QUEUE_URL: z.string().url(),
   EVENTS_QUEUE_URL: z.string().url(),
+  DLQ_QUEUE_URL: z.string().url().optional(),
   RESOLVER_MAX_ATTEMPTS: z.coerce.number().int().positive().default(10),
   RESOLVER_TTL_SECONDS: z.coerce.number().int().positive().default(900),
 });

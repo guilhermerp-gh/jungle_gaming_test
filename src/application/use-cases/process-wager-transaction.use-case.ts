@@ -7,6 +7,7 @@ import {
 } from "../../domain/events/events";
 import { DomainError } from "../../domain/errors/domain-error";
 import { FailureCode } from "../../domain/errors/failure-code";
+import { InboxMessage } from "../../domain/messaging/inbox-message";
 import { OutboxMessage } from "../../domain/messaging/outbox-message";
 import { Money } from "../../domain/money/money";
 import { computePayloadHash } from "../../domain/wagering/payload-hash";
@@ -14,6 +15,11 @@ import { WagerTransaction } from "../../domain/wagering/wager-transaction";
 import { WageringPolicy } from "../../domain/wagering/wagering-policy";
 import type { ProcessTransactionDto, TransactionResponseDto } from "../dto/transaction.dto";
 import type { UnitOfWork } from "../ports/unit-of-work.port";
+
+export interface MessageProcessingContext {
+  consumerName: string;
+  messageId: string;
+}
 
 export interface ProcessTransactionResult {
   statusCode: 200 | 201 | 202;
@@ -51,6 +57,7 @@ export class ProcessWagerTransactionUseCase {
   async execute(
     idempotencyKey: string,
     dto: ProcessTransactionDto,
+    context?: MessageProcessingContext,
   ): Promise<ProcessTransactionResult> {
     if (!idempotencyKey || idempotencyKey.trim().length === 0) {
       throw new DomainError(FailureCode.INVALID_PAYLOAD, "Missing Idempotency-Key header");
@@ -75,6 +82,39 @@ export class ProcessWagerTransactionUseCase {
     let executionResult;
     try {
       executionResult = await this.uow.transactional(async (repos) => {
+        let inboxMessage: InboxMessage | null = null;
+        if (context) {
+          inboxMessage = await repos.inbox.find(context.consumerName, context.messageId);
+          if (inboxMessage && inboxMessage.isProcessed) {
+            const existingTx =
+              (await repos.wagers.findByIdempotencyKey(idempotencyKey)) ??
+              (await repos.wagers.findByExternalId(dto.providerId, dto.externalTransactionId));
+            if (existingTx) {
+              return {
+                type: "REPLAY" as const,
+                tx: existingTx,
+              };
+            }
+          }
+
+          if (!inboxMessage) {
+            inboxMessage = InboxMessage.receive({
+              consumerName: context.consumerName,
+              messageId: context.messageId,
+              payloadHash,
+              now: new Date(),
+            });
+            await repos.inbox.tryInsert(inboxMessage);
+          }
+        }
+
+        const markInboxIfPresent = async (date: Date) => {
+          if (context && inboxMessage && !inboxMessage.isProcessed) {
+            inboxMessage.markProcessed(date);
+            await repos.inbox.markProcessed(inboxMessage);
+          }
+        };
+
         // 1. Lock pessimista por linha na carteira
         const wallet = await repos.wallets.findByIdForUpdate(dto.walletId);
         if (!wallet) {
@@ -93,6 +133,7 @@ export class ProcessWagerTransactionUseCase {
         const existingByIdempotency = await repos.wagers.findByIdempotencyKey(idempotencyKey);
         if (existingByIdempotency) {
           if (existingByIdempotency.props.payloadHash === payloadHash) {
+            await markInboxIfPresent(new Date());
             return {
               type: "REPLAY" as const,
               tx: existingByIdempotency,
@@ -216,6 +257,7 @@ export class ProcessWagerTransactionUseCase {
             resultBalance: tx.props.resultBalance ? tx.props.resultBalance.amount : null,
           });
           await repos.outbox.add(OutboxMessage.fromEvent(processedEvent));
+          await markInboxIfPresent(now);
 
           return {
             type: "PROCESSED" as const,
@@ -235,6 +277,7 @@ export class ProcessWagerTransactionUseCase {
             referenceExternalTransactionId: tx.props.referenceExternalTransactionId,
           });
           await repos.outbox.add(OutboxMessage.fromEvent(pendingEvent));
+          await markInboxIfPresent(now);
 
           return {
             type: "PENDING_REFERENCE" as const,
@@ -253,6 +296,7 @@ export class ProcessWagerTransactionUseCase {
           failureCode: decision.code,
         });
         await repos.outbox.add(OutboxMessage.fromEvent(rejectedEvent));
+        await markInboxIfPresent(now);
 
         return {
           type: "REJECTED" as const,
@@ -273,9 +317,17 @@ export class ProcessWagerTransactionUseCase {
       if (isUniqueViolation) {
         // Tenta resolver olhando o registro já commitado pela transação concorrente vencedora
         const fallback = await this.uow.transactional(async (repos) => {
+          let fallbackInbox: InboxMessage | null = null;
+          if (context) {
+            fallbackInbox = await repos.inbox.find(context.consumerName, context.messageId);
+          }
           const byKey = await repos.wagers.findByIdempotencyKey(idempotencyKey);
           if (byKey) {
             if (byKey.props.payloadHash === payloadHash) {
+              if (context && fallbackInbox && !fallbackInbox.isProcessed) {
+                fallbackInbox.markProcessed(new Date());
+                await repos.inbox.markProcessed(fallbackInbox);
+              }
               return { type: "REPLAY" as const, tx: byKey };
             }
             throw new DomainError(

@@ -36,16 +36,16 @@ Este workflow garante a integridade de todas as camadas do sistema seguindo a pi
      ```
    - **Comportamento em Falha:** Aponta o arquivo, linha e erro de tipagem e interrompe.
 
-4. **Etapa 3: Testes Unitários de Domínio, Casos de Uso e Mensageria (`test:unit`)**
-   - **Objetivo:** Testar regras de negócio, `Money`, `Wallet`, `WageringPolicy`, `payloadHash`, adapter de mensageria SQS FIFO, retentativas com backoff exponencial e todos os casos de uso de aplicação na memória.
+4. **Etapa 3: Testes Unitários de Domínio, Casos de Uso, Mensageria e Consumers (`test:unit`)**
+   - **Objetivo:** Testar regras de negócio, `Money`, `Wallet`, `WageringPolicy`, `payloadHash`, adapter de mensageria SQS FIFO, worker consumidor de transações (`WagerTransactionsConsumerWorker`), validação com Zod, classificação de falhas (negócio vs poison pills), retentativas com backoff exponencial e todos os casos de uso de aplicação na memória.
    - **Comando:**
      ```bash
      bun test test/unit
      ```
    - **Comportamento em Falha:** Reporta a regra de negócio/aplicação violada e interrompe.
 
-5. **Etapa 4: Testes de Integração de Persistência, HTTP e Outbox SQS FIFO (`test:integration`)**
-   - **Objetivo:** Testar transações no PostgreSQL real (locks pessimistas `SELECT ... FOR UPDATE`, triggers de imutabilidade, restrições e índices parciais), endpoints HTTP E2E no NestJS e o **Transactional Outbox Publisher** contra o AWS SQS FIFO real no LocalStack (`wallet-events.fifo`), incluindo concorrência massiva com `SKIP LOCKED` e recuperação de crash pós-lease.
+5. **Etapa 4: Testes de Integração de Persistência, HTTP, Outbox e SQS Consumer Worker (`test:integration`)**
+   - **Objetivo:** Testar transações no PostgreSQL real (locks pessimistas `SELECT ... FOR UPDATE`, triggers de imutabilidade, restrições e índices parciais), endpoints HTTP E2E no NestJS, o **Transactional Outbox Publisher** contra o AWS SQS FIFO real no LocalStack (`wallet-events.fifo`) e o **SQS Consumer Worker com Inbox Pattern** (`wager-transactions.fifo`), cobrindo processamento ponta a ponta, rejeição contábil, deduplicação em reentregas pós-commit, roteamento de poison pills para DLQ (`wager-transactions-dlq.fifo`) e graceful shutdown.
    - **Comando:**
      ```bash
      bun test test/integration
