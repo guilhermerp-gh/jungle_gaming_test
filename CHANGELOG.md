@@ -7,6 +7,36 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [0.4.0] - 17-10-2026
+
+### Resumo Executivo
+
+A versão 0.4.0 traz proteções avançadas contra concorrência extrema e disputas simultâneas de saldo, blindando a experiência do jogador contra cobranças indevidas ou duplicações em momentos de pico. Agora, mesmo sob tempestades de requisições enviadas ao mesmo tempo pelo cassino ou em cenários de instabilidade de conexão, cada aposta é processada com exatidão matemática, o saldo nunca fica negativo e requisições repetidas são reconhecidas instantaneamente sem descontar valores a mais. A documentação interativa também foi enriquecida com orientações passo a passo para facilitar a integração e testes por provedores de jogos.
+
+### ✨ Adicionado
+- Suíte de alta concorrência e estresse com 7 cenários automatizados e 290 asserções (`test/concurrency/concurrency.test.ts`).
+- Cobertura exaustiva de corrida: cenário 100/80/80 (anti-gasto duplo), tempestades de idempotência (50x a 100x com mesma chave), hot wallet com 100 threads, operações mistas BET+WIN e paralelismo de 10 carteiras sem locks globais.
+- Endpoint de prontidão `GET /health/ready` (readiness probe) para orquestração de contêineres e Kubernetes.
+- Roteiro passo a passo interativo no Swagger UI (`/api/docs`) guiando a ordem recomendada de execução dos endpoints.
+
+### 🔄 Modificado
+- Resiliência contra colisões concorrentes de chave única no PostgreSQL (`code: 23505`) no caso de uso, evitando erros 500 não tratados sob alta disputa.
+- Documentação OpenAPI enriquecida com mapeamento do status HTTP `503 Service Unavailable` (`Retry-After: 1`, `retryable: true`).
+- Scripts de teste em `package.json` unificados: `bun run test:all` agora valida `lint:money`, `typecheck` e todas as 3 suítes (76 testes) em paralelo em ~2.3s.
+- [README.md](./README.md) e workflow `run-tests.md` atualizados com a pirâmide de testes de 5 etapas consolidadas.
+
+### 🐛 Corrigido
+- Eliminação de campo duplicado do header `Idempotency-Key` no portal visual Swagger UI via padronização de nomenclatura.
+
+### 🧪 Sugestões de Testes
+- Executar `bun run test:all` (validação de ponta a ponta com 76 testes verdes).
+- Executar especificamente a suíte de alta concorrência: `bun run test:concurrency`.
+- Acessar `http://localhost:3000/api/docs` e seguir a ordem recomendada de teste no topo da página.
+
+📄 [Notas detalhadas da versão](./docs/releases/00.04/00.04.00.md)
+
+---
+
 ## [0.3.0] - 17-10-2026
 
 ### Resumo Executivo

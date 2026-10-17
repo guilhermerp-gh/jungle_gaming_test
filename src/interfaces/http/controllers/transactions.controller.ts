@@ -98,8 +98,12 @@ export class TransactionsController {
   @ApiResponse({ status: 404, description: "Carteira não encontrada" })
   @ApiResponse({ status: 409, description: "Conflito de idempotência (mesma chave com payload divergente)" })
   @ApiResponse({ status: 422, description: "Rejeição de negócio (ex.: INSUFFICIENT_FUNDS, ALREADY_REVERSED)" })
+  @ApiResponse({
+    status: 503,
+    description: "Conflito temporário de concorrência ou lock timeout (retryable: true, com cabeçalho Retry-After)",
+  })
   async process(
-    @Headers("idempotency-key") idempotencyKeyHeader: string | undefined,
+    @Headers("Idempotency-Key") idempotencyKeyHeader: string | undefined,
     @Body(new ZodValidationPipe(ProcessTransactionSchema)) dto: ProcessTransactionDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<TransactionResponseDto> {

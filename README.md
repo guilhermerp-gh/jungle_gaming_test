@@ -42,47 +42,71 @@ Antes de iniciar, certifique-se de ter instalado em sua máquina:
    Com o servidor ativo, acesse pelo navegador para explorar e testar todos os endpoints visualmente:
    👉 **http://localhost:3000/api/docs**
 
+   #### 🕹️ Ordem de Execução Recomendada (Passo a Passo Interativo):
+   1. **`POST /wallets`**: Crie uma carteira com saldo inicial (ex.: R$ 100,00). Copie o `id` da carteira retornado.
+   2. **`GET /wallets/{id}`**: Consulte a carteira pelo `id` para ver o saldo e a versão inicial.
+   3. **`POST /transactions`**: Faça uma aposta `BET` de R$ 30,00 informando um `Idempotency-Key` (ex.: `req-001`). O saldo restante passará para R$ 70,00 (`201 Created`).
+   4. **`POST /transactions` (Idempotência)**: Clique em *Execute* novamente sem alterar nada (mesma chave e mesmo corpo). O retorno será `200 OK` com `"idempotentReplay": true`, sem debitar a carteira novamente!
+   5. **`POST /transactions`**: Credite um prêmio `WIN` de R$ 50,00 com nova chave (`req-002`), elevando o saldo para R$ 120,00.
+   6. **`GET /wallets/{id}/ledger`**: Obtenha o extrato contábil paginado com o histórico de todos os lançamentos.
+   7. **`POST /wallets/{id}/reconciliation`**: Dispare a reconciliação matemática da carteira para comprovar que `consistent: true` e `difference: "0.00"`.
+
 ---
 
 ## 🧪 Como Rodar os Testes
 
 O projeto conta com validações estritas de tipagem, regras financeiras e testes automatizados organizados em pirâmide fail-fast:
 
-### 🚀 Pipeline Completo em Ordem Fail-Fast (Recomendado)
-Executa na ordem ideal: **Lint Money $\rightarrow$ Typecheck $\rightarrow$ Unitários $\rightarrow$ Integração**:
-```bash
-bun run test:pipeline
-```
-*(No chat do assistente, você também pode simplesmente usar o comando `/run-tests`).*
-
-### 1. Testes de Integração (PostgreSQL Real e API HTTP)
-Executa 28 testes cobrindo locks pessimistas (`SELECT ... FOR UPDATE`), triggers de imutabilidade do ledger, integridade de saldo, reversão única e endpoints HTTP E2E:
-```bash
-bun test test/integration
-```
-
-### 2. Testes Unitários de Domínio e Casos de Uso
-Executa 41 testes de regras de negócio, casos de uso de aplicação, máquina de estados das transações, cálculo de hash de idempotência e aritmética do objeto `Money`:
-```bash
-bun test test/unit
-```
-
-### 3. Validação Estrita de Valores Monetários (Lint Money)
-Garante que nenhum `number`, `float` ou `parseFloat` seja utilizado para valores financeiros:
-```bash
-bun run lint:money
-```
-
-### 4. Checagem de Tipagem Estrita
-Executa a validação de tipos do TypeScript (`strict: true`, `noUncheckedIndexedAccess`):
-```bash
-bun run typecheck
-```
-
-### 5. Executar Toda a Suíte (69 testes)
+### 🚀 Validação Completa de Ponta a Ponta (Recomendado)
+Executa a validação completa em ordem Fail-Fast: **Lint Money $\rightarrow$ Typecheck $\rightarrow$ Todos os 76 Testes Automatizados**:
 ```bash
 bun run test:all
 ```
+*(Você também pode usar o alias `bun run test:pipeline` ou o comando `/run-tests` no chat).*
+
+---
+
+### 🧪 Execuções Segmentadas
+
+* **Executar Apenas as Suítes de Teste (sem lint/typecheck):**
+  ```bash
+  bun run test:suites
+  ```
+
+* **1. Testes de Integração (PostgreSQL Real e API HTTP):**
+  Executa 28 testes cobrindo locks pessimistas (`SELECT ... FOR UPDATE`), triggers de imutabilidade do ledger, integridade de saldo, reversão única e endpoints HTTP E2E:
+  ```bash
+  bun run test:integration
+  ```
+
+* **2. Testes de Alta Concorrência e Idempotência Massiva (Fase 4):**
+  Executa 7 testes de estresse (290 asserções) cobrindo cenário 100/80/80, tempestade de idempotência (50x a 100x requisições simultâneas com a mesma chave), esgotamento de saldo (*hot wallet* com 100 threads), concorrência mista (BETs + WINs) e isolamento em múltiplas carteiras sem deadlocks:
+  ```bash
+  bun run test:concurrency
+  ```
+
+* **3. Testes Unitários de Domínio e Casos de Uso:**
+  Executa 41 testes de regras de negócio, casos de uso de aplicação, máquina de estados das transações, cálculo de hash de idempotência e aritmética do objeto `Money`:
+  ```bash
+  bun run test
+  ```
+
+* **4. Validação Estrita de Valores Monetários (Lint Money):**
+  Garante que nenhum `number`, `float` ou `parseFloat` seja utilizado para valores financeiros:
+  ```bash
+  bun run lint:money
+  ```
+
+* **5. Checagem de Tipagem Estrita (Typecheck):**
+  Executa a validação de tipos do TypeScript (`strict: true`, `noUncheckedIndexedAccess`):
+  ```bash
+  bun run typecheck
+  ```
+
+* **6. Checagem Completa de Qualidade (Lint Geral + Money + Types + Testes):**
+  ```bash
+  bun run check
+  ```
 
 ---
 

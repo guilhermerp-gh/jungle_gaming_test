@@ -52,8 +52,8 @@ Este workflow garante a integridade de todas as camadas do sistema seguindo a pi
      ```
    - **Comportamento em Falha:** Mostra o erro do banco de dados, da API ou asserção não atendida e interrompe.
 
-6. **Etapa 5: Testes de Alta Concorrência (`test:concurrency`) [se existir]**
-   - **Objetivo:** Stress tests e cenários de concorrência massiva paralela.
+5. **Etapa 5: Testes de Alta Concorrência (`test:concurrency`)**
+   - **Objetivo:** Stress tests e cenários de concorrência massiva paralela (cenário 100/80/80, tempestades de idempotência, hot wallet com 100 threads, operações mistas e isolamento entre carteiras).
    - **Comando:**
      ```bash
      bun test test/concurrency
