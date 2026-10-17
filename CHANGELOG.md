@@ -11,9 +11,10 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ### Resumo Executivo
 
-A versão 0.3.0 disponibiliza a API REST do processador de apostas, permitindo que provedores de jogos e sistemas de gestão criem carteiras de jogadores e realizem transações de apostas, ganhos, cancelamentos e estornos com segurança total. A nova interface impede cobranças duplicadas em conexões instáveis através de confirmação inteligente de transações já recebidas, oferece extrato detalhado para consulta de histórico e conta com auditoria contínua para certificar que o saldo dos jogadores esteja rigorosamente correto.
+A versão 0.3.0 disponibiliza a API REST do processador de apostas, acompanhada de documentação interativa completa via Swagger/OpenAPI. Ela permite que provedores de jogos e sistemas de gestão criem carteiras de jogadores e realizem transações de apostas, ganhos, cancelamentos e estornos com segurança total. A nova interface impede cobranças duplicadas em conexões instáveis através de confirmação inteligente de transações já recebidas, oferece extrato detalhado para consulta de histórico, conta com auditoria contínua para certificar que o saldo dos jogadores esteja rigorosamente correto e disponibiliza um portal interativo no navegador para visualização e testes em tempo real de todos os recursos.
 
 ### ✨ Adicionado
+- Documentação interativa Swagger / OpenAPI acessível via navegador em `/api/docs`.
 - Endpoints de gerenciamento de carteiras:
   - `POST /wallets`: criação atômica de carteiras e lançamento contábil `OPENING` se houver saldo inicial.
   - `GET /wallets/:id`: consulta de dados cadastrais e saldo da carteira.
@@ -30,14 +31,17 @@ A versão 0.3.0 disponibiliza a API REST do processador de apostas, permitindo q
 - Suíte de 10 testes unitários de casos de uso e 15 testes de integração E2E da API HTTP.
 
 ### 🔄 Modificado
-- `src/main.ts` atualizado para inicializar o `HttpModule` e registrar o filtro global de exceções.
+- `src/main.ts` atualizado para inicializar o `HttpModule`, registrar o filtro global de exceções e montar o Swagger em `/api/docs`.
+- Controladores (`WalletsController`, `TransactionsController` e `HealthController`) enriquecidos com anotações OpenAPI.
+- [README.md](./README.md) atualizado com link e instruções de acesso ao Swagger UI.
 - `FailureCode` estendido com `WALLET_ALREADY_EXISTS` e `TRANSACTION_NOT_FOUND`.
-- Versão do projeto incrementada para `0.3.0` no `package.json`.
+- Adicionado pacote `@nestjs/swagger` às dependências.
 
 ### 🐛 Corrigido
 - Reordenação da persistência no caso de uso para garantir que a transação de aposta seja inserida antes do registro de livro-razão correspondente, respeitando a chave estrangeira relacional.
 
 ### 🧪 Sugestões de Testes
+- Acessar `http://localhost:3000/api/docs` e testar chamadas interativas pelo navegador.
 - Executar `bun run test:pipeline` (41 testes unitários e 28 de integração contra banco real).
 - Validar criação de carteira, aposta, replay idempotente e reconciliação contábil via API REST.
 

@@ -33,6 +33,15 @@ Antes de iniciar, certifique-se de ter instalado em sua máquina:
    cp .env.example .env
    ```
 
+3. **Inicie o servidor de desenvolvimento:**
+   ```bash
+   bun run dev
+   ```
+
+4. **Documentação Interativa Swagger / OpenAPI:**
+   Com o servidor ativo, acesse pelo navegador para explorar e testar todos os endpoints visualmente:
+   👉 **http://localhost:3000/api/docs**
+
 ---
 
 ## 🧪 Como Rodar os Testes
