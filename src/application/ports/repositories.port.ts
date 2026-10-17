@@ -68,4 +68,7 @@ export interface OutboxRepository {
    */
   claimBatch(now: Date, limit: number, leaseMs: number): Promise<OutboxMessage[]>;
   save(message: OutboxMessage): Promise<void>;
+  /** Retorna a data occurredAt do evento pendente mais antigo (para cálculo de lag). */
+  getOldestPendingOccurredAt(): Promise<Date | null>;
 }
+

@@ -141,7 +141,11 @@ class InMemoryOutboxRepository implements OutboxRepository {
     return [];
   }
   async save(): Promise<void> {}
+  async getOldestPendingOccurredAt(): Promise<Date | null> {
+    return null;
+  }
 }
+
 
 class InMemoryInboxRepository implements InboxRepository {
   async tryInsert(): Promise<boolean> {

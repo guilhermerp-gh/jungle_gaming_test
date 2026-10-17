@@ -81,4 +81,14 @@ export class MikroOrmOutboxRepository implements OutboxRepository {
       },
     );
   }
+
+  async getOldestPendingOccurredAt(): Promise<Date | null> {
+    const row = await this.em.findOne(
+      OutboxMessageSchema,
+      { publishedAt: null },
+      { orderBy: { occurredAt: "asc" }, fields: ["occurredAt"], disableIdentityMap: true },
+    );
+    return row ? row.occurredAt : null;
+  }
 }
+

@@ -42,14 +42,19 @@ Antes de iniciar, certifique-se de ter instalado em sua máquina:
    Com o servidor ativo, acesse pelo navegador para explorar e testar todos os endpoints visualmente:
    👉 **http://localhost:3000/api/docs**
 
+5. **Dashboard Visual de Métricas & Outbox Observer:**
+   Acompanhe ao vivo o processamento e publicação de eventos na fila SQS FIFO e métricas Prometheus:
+   👉 **http://localhost:3000/metrics** *(ou http://localhost:3000/dashboard)*
+
    #### 🕹️ Ordem de Execução Recomendada (Passo a Passo Interativo):
    1. **`POST /wallets`**: Crie uma carteira com saldo inicial (ex.: R$ 100,00). Copie o `id` da carteira retornado.
    2. **`GET /wallets/{id}`**: Consulte a carteira pelo `id` para ver o saldo e a versão inicial.
-   3. **`POST /transactions`**: Faça uma aposta `BET` de R$ 30,00 informando um `Idempotency-Key` (ex.: `req-001`). O saldo restante passará para R$ 70,00 (`201 Created`).
+   3. **`POST /transactions`**: Faça uma aposta `BET` de R$ 30,00 informando um `Idempotency-Key` (ex.: `req-001`). O saldo restante passará para R$ 70,00 (`201 Created`). Os eventos contábeis são gerados na outbox e despachados para a fila SQS FIFO.
    4. **`POST /transactions` (Idempotência)**: Clique em *Execute* novamente sem alterar nada (mesma chave e mesmo corpo). O retorno será `200 OK` com `"idempotentReplay": true`, sem debitar a carteira novamente!
    5. **`POST /transactions`**: Credite um prêmio `WIN` de R$ 50,00 com nova chave (`req-002`), elevando o saldo para R$ 120,00.
    6. **`GET /wallets/{id}/ledger`**: Obtenha o extrato contábil paginado com o histórico de todos os lançamentos.
    7. **`POST /wallets/{id}/reconciliation`**: Dispare a reconciliação matemática da carteira para comprovar que `consistent: true` e `difference: "0.00"`.
+   8. **`GET /metrics`**: Acesse o painel de métricas para conferir os eventos entregues no SQS FIFO (`events_published_total`) e o lag da outbox zerado (`outbox_lag_seconds`).
 
 ---
 
@@ -58,7 +63,7 @@ Antes de iniciar, certifique-se de ter instalado em sua máquina:
 O projeto conta com validações estritas de tipagem, regras financeiras e testes automatizados organizados em pirâmide fail-fast:
 
 ### 🚀 Validação Completa de Ponta a Ponta (Recomendado)
-Executa a validação completa em ordem Fail-Fast: **Lint Money $\rightarrow$ Typecheck $\rightarrow$ Todos os 76 Testes Automatizados**:
+Executa a validação completa em ordem Fail-Fast: **Lint Money $\rightarrow$ Typecheck $\rightarrow$ Todos os 86 Testes Automatizados**:
 ```bash
 bun run test:all
 ```
@@ -73,8 +78,8 @@ bun run test:all
   bun run test:suites
   ```
 
-* **1. Testes de Integração (PostgreSQL Real e API HTTP):**
-  Executa 28 testes cobrindo locks pessimistas (`SELECT ... FOR UPDATE`), triggers de imutabilidade do ledger, integridade de saldo, reversão única e endpoints HTTP E2E:
+* **1. Testes de Integração (PostgreSQL Real, API HTTP e LocalStack SQS FIFO):**
+  Executa 32 testes cobrindo locks pessimistas (`SELECT ... FOR UPDATE`), triggers de imutabilidade do ledger, integridade de saldo, reversão única, endpoints HTTP E2E e o Transactional Outbox Publisher (`wallet-events.fifo`, concorrência com `SKIP LOCKED` e crash recovery):
   ```bash
   bun run test:integration
   ```
@@ -85,8 +90,8 @@ bun run test:all
   bun run test:concurrency
   ```
 
-* **3. Testes Unitários de Domínio e Casos de Uso:**
-  Executa 41 testes de regras de negócio, casos de uso de aplicação, máquina de estados das transações, cálculo de hash de idempotência e aritmética do objeto `Money`:
+* **3. Testes Unitários de Domínio, Casos de Uso e Mensageria:**
+  Executa 47 testes de regras de negócio, casos de uso de aplicação, máquina de estados das transações, publicador SQS FIFO, retentativas com backoff exponencial e aritmética do objeto `Money`:
   ```bash
   bun run test
   ```

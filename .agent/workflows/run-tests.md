@@ -11,13 +11,13 @@ Este workflow garante a integridade de todas as camadas do sistema seguindo a pi
 ### Passo a Passo de Execução:
 
 1. **Checagem de Pré-requisitos de Infraestrutura:**
-   - Verifica se o container do PostgreSQL está rodando:
+   - Verifica se os containers do PostgreSQL e do LocalStack (SQS) estão rodando:
      ```bash
-     docker compose ps postgres
+     docker compose ps postgres localstack
      ```
-   - Se não estiver ativo ou não estiver saudável (`healthy`), inicia o serviço automaticamente:
+   - Se não estiverem ativos ou saudáveis (`healthy`), inicia os serviços automaticamente:
      ```bash
-     docker compose up -d postgres
+     docker compose up -d postgres localstack
      ```
 
 2. **Etapa 1: Guarda Financeira (`lint:money`)**
@@ -36,23 +36,23 @@ Este workflow garante a integridade de todas as camadas do sistema seguindo a pi
      ```
    - **Comportamento em Falha:** Aponta o arquivo, linha e erro de tipagem e interrompe.
 
-4. **Etapa 3: Testes Unitários de Domínio e Casos de Uso (`test:unit`)**
-   - **Objetivo:** Testar regras de negócio, `Money`, `Wallet`, `WageringPolicy`, `payloadHash` e todos os casos de uso de aplicação (`CreateWallet`, `ProcessWagerTransaction`, `GetLedger`, `ReconcileWallet`, etc.) na memória.
+4. **Etapa 3: Testes Unitários de Domínio, Casos de Uso e Mensageria (`test:unit`)**
+   - **Objetivo:** Testar regras de negócio, `Money`, `Wallet`, `WageringPolicy`, `payloadHash`, adapter de mensageria SQS FIFO, retentativas com backoff exponencial e todos os casos de uso de aplicação na memória.
    - **Comando:**
      ```bash
      bun test test/unit
      ```
    - **Comportamento em Falha:** Reporta a regra de negócio/aplicação violada e interrompe.
 
-5. **Etapa 4: Testes de Integração de Persistência e API HTTP (`test:integration`)**
-   - **Objetivo:** Testar transações no PostgreSQL real (locks pessimistas `SELECT ... FOR UPDATE`, triggers de imutabilidade, restrições e índices parciais) e endpoints HTTP E2E no NestJS com ciclo de vida, idempotência e reconciliação.
+5. **Etapa 4: Testes de Integração de Persistência, HTTP e Outbox SQS FIFO (`test:integration`)**
+   - **Objetivo:** Testar transações no PostgreSQL real (locks pessimistas `SELECT ... FOR UPDATE`, triggers de imutabilidade, restrições e índices parciais), endpoints HTTP E2E no NestJS e o **Transactional Outbox Publisher** contra o AWS SQS FIFO real no LocalStack (`wallet-events.fifo`), incluindo concorrência massiva com `SKIP LOCKED` e recuperação de crash pós-lease.
    - **Comando:**
      ```bash
      bun test test/integration
      ```
-   - **Comportamento em Falha:** Mostra o erro do banco de dados, da API ou asserção não atendida e interrompe.
+   - **Comportamento em Falha:** Mostra o erro do banco de dados, da fila SQS, da API ou asserção não atendida e interrompe.
 
-5. **Etapa 5: Testes de Alta Concorrência (`test:concurrency`)**
+6. **Etapa 5: Testes de Alta Concorrência (`test:concurrency`)**
    - **Objetivo:** Stress tests e cenários de concorrência massiva paralela (cenário 100/80/80, tempestades de idempotência, hot wallet com 100 threads, operações mistas e isolamento entre carteiras).
    - **Comando:**
      ```bash

@@ -7,6 +7,40 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [0.5.0] - 17-10-2026
+
+### Resumo Executivo
+
+A versão 0.5.0 introduz o publicador transacional de eventos e o monitoramento em tempo real de mensageria, assegurando que toda movimentação de aposta e saldo seja comunicada a serviços externos de forma garantida e ordenada, sem perdas mesmo em caso de falhas temporárias de rede ou reinicializações do servidor. As transações financeiras agora são despachadas assincronamente para filas de alta confiabilidade com garantia de entrega exata, proteção contra duplicidades e recuperação automática pós-interrupção. Além disso, a versão estreia um painel visual moderno no navegador para acompanhamento instantâneo de métricas, permitindo verificar a velocidade de entrega dos eventos e a saúde do sistema sem esforço técnico.
+
+### ✨ Adicionado
+- Caso de uso `PublishOutboxMessagesUseCase` com consumo em lote (`claimBatch`), concorrência com travas de linha `SELECT ... FOR UPDATE SKIP LOCKED` e leasing de 30s (`locked_until`).
+- Publicação de eventos financeiros na fila AWS SQS FIFO (`wallet-events.fifo`) com ordenação estrita causal por carteira (`MessageGroupId`) e deduplicação nativa de 5 minutos da AWS (`MessageDeduplicationId`).
+- Agendamento de retentativas com *backoff* exponencial ($1s \to 2s \to 4s \dots \max 60s$) e liberação imediata do lock em falhas transitórias.
+- Background worker `OutboxPublisherWorker` periódico controlado por `APP_ROLE=all|outbox` com suporte a *Graceful Shutdown* (`SIGTERM`).
+- Porta `MessagePublisherPort` desacoplada e adaptador `SqsMessagePublisher` via `@aws-sdk/client-sqs` (compatível com AWS e LocalStack).
+- Métricas Prometheus de mensageria (`OutboxMetrics`): `outbox_lag_seconds`, `events_published_total` e `outbox_publish_errors_total`.
+- Dashboard visual interativo Glassmorphic em tempo real em `/metrics` e `/dashboard` com atualização automática a cada 1.5s via `/api/metrics`.
+- Testes automatizados de mensageria: 6 novos testes unitários e 4 testes de integração de ponta a ponta conectando PostgreSQL e LocalStack SQS reais (totalizando 86 testes).
+
+### 🔄 Modificado
+- Swagger UI (`/api/docs`) atualizado para a versão `v0.5.0` com nova tag `observability` e passo 8 no guia interativo.
+- `MikroOrmOutboxRepository` enriquecido com `getOldestPendingOccurredAt()` para consulta otimizada do evento pendente mais antigo via índice parcial.
+- [README.md](./README.md) e workflow `run-tests.md` atualizados com os novos 86 testes automatizados e pré-requisitos do LocalStack.
+
+### 🐛 Corrigido
+- Resolução de injeção de dependências no NestJS via decorador `@Optional()` para parâmetros de configuração do worker no runtime Bun.
+- Isolamento de falhas por mensagem no lote para evitar que erro em um evento impeça a confirmação dos eventos já publicados com sucesso.
+
+### 🧪 Sugestões de Testes
+- Executar `bun run check` (validação completa: lint de dinheiro, tipagem estrita, ESLint e 86 testes).
+- Executar os testes de integração de mensageria: `bun test test/integration/outbox-publisher.integration.test.ts`.
+- Acessar o Dashboard Visual no navegador: `http://localhost:3000/metrics` e testar uma aposta no Swagger para observar o incremento ao vivo.
+
+📄 [Notas detalhadas da versão](./docs/releases/00.05/00.05.00.md)
+
+---
+
 ## [0.4.0] - 17-10-2026
 
 ### Resumo Executivo
