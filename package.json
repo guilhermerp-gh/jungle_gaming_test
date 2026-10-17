@@ -1,6 +1,6 @@
 {
   "name": "distributed-wagering-processor",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,12 +10,13 @@
     "lint": "bunx --bun eslint . && bun run lint:money",
     "lint:money": "bash scripts/lint-money.sh",
     "typecheck": "tsc --noEmit",
-    "migration:create": "mikro-orm migration:create",
-    "migration:up": "mikro-orm migration:up",
-    "migration:down": "mikro-orm migration:down",
+    "migration:create": "bunx --bun mikro-orm migration:create --config src/infrastructure/persistence/mikro-orm/mikro-orm.config.ts",
+    "migration:up": "bun run scripts/migrate.ts up",
+    "migration:down": "bun run scripts/migrate.ts down",
     "test": "bun test test/unit",
     "test:integration": "bun test test/integration",
     "test:concurrency": "bun test test/concurrency",
+    "test:pipeline": "bun run lint:money && bun run typecheck && bun test test/unit && bun test test/integration",
     "test:all": "bun test test"
   },
   "dependencies": {

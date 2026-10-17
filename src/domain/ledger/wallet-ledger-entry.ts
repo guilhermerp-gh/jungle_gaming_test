@@ -36,4 +36,25 @@ export class WalletLedgerEntry {
   get id(): string {
     return this.props.id;
   }
+  get walletId(): string {
+    return this.props.walletId;
+  }
+  get transactionId(): string {
+    return this.props.transactionId;
+  }
+  get direction(): LedgerDirection {
+    return this.props.direction;
+  }
+  get amount(): Money {
+    return this.props.amount;
+  }
+  get balanceBefore(): Money {
+    return this.props.balanceBefore;
+  }
+  get balanceAfter(): Money {
+    return this.props.balanceAfter;
+  }
+  get createdAt(): Date {
+    return this.props.createdAt;
+  }
 }

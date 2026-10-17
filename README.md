@@ -37,40 +37,65 @@ Antes de iniciar, certifique-se de ter instalado em sua máquina:
 
 ## 🧪 Como Rodar os Testes
 
-O projeto conta com validações estritas de tipagem, regras financeiras e testes automatizados:
+O projeto conta com validações estritas de tipagem, regras financeiras e testes automatizados organizados em pirâmide fail-fast:
 
-### 1. Testes Unitários de Domínio
+### 🚀 Pipeline Completo em Ordem Fail-Fast (Recomendado)
+Executa na ordem ideal: **Lint Money $\rightarrow$ Typecheck $\rightarrow$ Unitários $\rightarrow$ Integração**:
+```bash
+bun run test:pipeline
+```
+*(No chat do assistente, você também pode simplesmente usar o comando `/run-tests`).*
+
+### 1. Testes de Integração (PostgreSQL Real)
+Executa 13 testes cobrindo locks pessimistas (`SELECT ... FOR UPDATE`), triggers de imutabilidade do ledger, integridade de saldo e reversão única:
+```bash
+bun test test/integration
+```
+
+### 2. Testes Unitários de Domínio
 Executa todos os testes de regras de negócio, máquina de estados das transações, cálculo de hash de idempotência e aritmética do objeto `Money`:
 ```bash
 bun test test/unit
-# ou
-bun test
 ```
 
-### 2. Validação Estrita de Valores Monetários (Lint Money)
-Garante que nenhum `number`, `float` ou `parseFloat` seja utilizado para valores financeiros (regra eliminatória da spec):
+### 3. Validação Estrita de Valores Monetários (Lint Money)
+Garante que nenhum `number`, `float` ou `parseFloat` seja utilizado para valores financeiros:
 ```bash
 bun run lint:money
 ```
 
-### 3. Checagem de Tipagem Estrita
+### 4. Checagem de Tipagem Estrita
 Executa a validação de tipos do TypeScript (`strict: true`, `noUncheckedIndexedAccess`):
 ```bash
 bun run typecheck
 ```
 
-### 4. Linter de Código
-Valida formatação e integridade arquitetural (impede que o domínio importe frameworks):
+### 5. Executar Toda a Suíte (44 testes)
 ```bash
-bun run lint
+bun run test:all
 ```
 
-### 5. Demais Suítes (Fases de Integração/Concorrência)
+---
+
+## 🗄️ Banco de Dados e Migrações
+
+### Aplicar Migrações no PostgreSQL
+Para criar as tabelas, triggers e constraints no banco:
 ```bash
-bun run test:integration  # Testes com Postgres e LocalStack reais
-bun run test:concurrency  # Testes de alta concorrência em paralelo
-bun run test:all          # Executa todas as suítes
+bun run migration:up
 ```
+
+Para reverter a última migração:
+```bash
+bun run migration:down
+```
+
+### Conexão Externa (Postico, DBeaver, TablePlus)
+Com o PostgreSQL ativo via Docker, conecte-se utilizando:
+* **URL:** `postgres://wager:wager@localhost:5432/wager`
+* **Host:** `localhost` | **Porta:** `5432`
+* **Usuário / Senha:** `wager` / `wager`
+* **Database:** `wager`
 
 ---
 
