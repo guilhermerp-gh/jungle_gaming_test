@@ -1,3 +1,39 @@
+/**
+ * ============================================================================
+ * 🧪 TESTES DE INTEGRAÇÃO: PERSISTÊNCIA & POSTGRESQL (FASE 2)
+ * ============================================================================
+ * Arquivo: test/integration/persistence.test.ts
+ *
+ * 🎯 RESPONSABILIDADE DESTE ARQUIVO:
+ * Validar diretamente no banco de dados PostgreSQL real as garantias estruturais
+ * e de integridade financeira que foram implementadas na Fase 2 através de
+ * esquemas MikroORM, triggers PL/pgSQL, restrições CHECK e índices parciais.
+ *
+ * 📋 O QUE ELE TESTA ESPECIFICAMENTE:
+ * 1. Carteira & Concorrência:
+ *    - Persistência e reidratação do Aggregate Wallet com Value Object Money.
+ *    - Concorrência Otimista: falha ao salvar alteração com versão desatualizada (saveBalance).
+ *    - Lock Pessimista: serialização de transações concorrentes na mesma carteira
+ *      utilizando SELECT ... FOR UPDATE (sem travamento global da tabela).
+ *    - Integridade no Banco: bloqueio de saldo negativo via constraint CHECK do PostgreSQL.
+ *
+ * 2. Imutabilidade do Livro-Razão (Ledger):
+ *    - Trigger `trg_ledger_entries_immutable`: aborta tentativas de UPDATE no ledger.
+ *    - Trigger `trg_ledger_entries_immutable`: aborta tentativas de DELETE no ledger.
+ *    - Constraint CHECK: rejeita inserções com matemática inconsistente (balanceAfter != balanceBefore ± amount).
+ *    - Totais Contábeis: somatórios NUMERIC em banco e paginação sequencial via seq crescente.
+ *
+ * 3. Transações de Aposta & Estados Terminais:
+ *    - Trigger `trg_wager_tx_terminal_state`: impede alteração de transações já processadas/rejeitadas.
+ *    - Índice Parcial `ux_single_reversal`: impede que uma mesma aposta sofra mais de uma reversão (REFUND/ROLLBACK).
+ *    - Concorrência de Leases: claimDuePendingReferences com FOR UPDATE SKIP LOCKED.
+ *
+ * 4. Padrões de Mensageria Resiliente:
+ *    - Inbox Pattern: tryInsert com garantia de idempotência via ON CONFLICT DO NOTHING.
+ *    - Outbox Pattern: claimBatch aplicando lease temporário com SKIP LOCKED para múltiplos workers.
+ * ============================================================================
+ */
+
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import { ConcurrencyConflictError } from "../../src/application/ports/unit-of-work.port";
 import { Money } from "../../src/domain/money/money";

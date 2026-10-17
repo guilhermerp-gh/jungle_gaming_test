@@ -46,14 +46,14 @@ bun run test:pipeline
 ```
 *(No chat do assistente, você também pode simplesmente usar o comando `/run-tests`).*
 
-### 1. Testes de Integração (PostgreSQL Real)
-Executa 13 testes cobrindo locks pessimistas (`SELECT ... FOR UPDATE`), triggers de imutabilidade do ledger, integridade de saldo e reversão única:
+### 1. Testes de Integração (PostgreSQL Real e API HTTP)
+Executa 28 testes cobrindo locks pessimistas (`SELECT ... FOR UPDATE`), triggers de imutabilidade do ledger, integridade de saldo, reversão única e endpoints HTTP E2E:
 ```bash
 bun test test/integration
 ```
 
-### 2. Testes Unitários de Domínio
-Executa todos os testes de regras de negócio, máquina de estados das transações, cálculo de hash de idempotência e aritmética do objeto `Money`:
+### 2. Testes Unitários de Domínio e Casos de Uso
+Executa 41 testes de regras de negócio, casos de uso de aplicação, máquina de estados das transações, cálculo de hash de idempotência e aritmética do objeto `Money`:
 ```bash
 bun test test/unit
 ```
@@ -70,7 +70,7 @@ Executa a validação de tipos do TypeScript (`strict: true`, `noUncheckedIndexe
 bun run typecheck
 ```
 
-### 5. Executar Toda a Suíte (44 testes)
+### 5. Executar Toda a Suíte (69 testes)
 ```bash
 bun run test:all
 ```

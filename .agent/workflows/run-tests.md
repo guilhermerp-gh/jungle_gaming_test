@@ -36,21 +36,21 @@ Este workflow garante a integridade de todas as camadas do sistema seguindo a pi
      ```
    - **Comportamento em Falha:** Aponta o arquivo, linha e erro de tipagem e interrompe.
 
-4. **Etapa 3: Testes Unitários de Domínio Puro (`test:unit`)**
-   - **Objetivo:** Testar regras de negócio, `Money`, `Wallet`, `WageringPolicy` e `payloadHash` na memória.
+4. **Etapa 3: Testes Unitários de Domínio e Casos de Uso (`test:unit`)**
+   - **Objetivo:** Testar regras de negócio, `Money`, `Wallet`, `WageringPolicy`, `payloadHash` e todos os casos de uso de aplicação (`CreateWallet`, `ProcessWagerTransaction`, `GetLedger`, `ReconcileWallet`, etc.) na memória.
    - **Comando:**
      ```bash
      bun test test/unit
      ```
-   - **Comportamento em Falha:** Reporta a regra de domínio violada e interrompe.
+   - **Comportamento em Falha:** Reporta a regra de negócio/aplicação violada e interrompe.
 
-5. **Etapa 4: Testes de Integração de Persistência (`test:integration`)**
-   - **Objetivo:** Testar transações no PostgreSQL real (locks pessimistas `SELECT ... FOR UPDATE`, triggers de imutabilidade, restrições e índices parciais).
+5. **Etapa 4: Testes de Integração de Persistência e API HTTP (`test:integration`)**
+   - **Objetivo:** Testar transações no PostgreSQL real (locks pessimistas `SELECT ... FOR UPDATE`, triggers de imutabilidade, restrições e índices parciais) e endpoints HTTP E2E no NestJS com ciclo de vida, idempotência e reconciliação.
    - **Comando:**
      ```bash
      bun test test/integration
      ```
-   - **Comportamento em Falha:** Mostra o erro do banco de dados ou asserção não atendida e interrompe.
+   - **Comportamento em Falha:** Mostra o erro do banco de dados, da API ou asserção não atendida e interrompe.
 
 6. **Etapa 5: Testes de Alta Concorrência (`test:concurrency`) [se existir]**
    - **Objetivo:** Stress tests e cenários de concorrência massiva paralela.

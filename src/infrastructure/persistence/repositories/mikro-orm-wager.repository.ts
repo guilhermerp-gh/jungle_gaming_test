@@ -41,7 +41,9 @@ export class MikroOrmWagerTransactionRepository implements WagerTransactionRepos
   }
 
   async update(tx: WagerTransaction): Promise<void> {
-    const { id, createdAt: _createdAt, ...changes } = WagerTransactionMapper.toRecord(tx);
+    const record = WagerTransactionMapper.toRecord(tx);
+    const { id, createdAt: _ignored, ...changes } = record;
+    void _ignored;
     const affected = await this.em.nativeUpdate(WagerTransactionSchema, { id }, changes);
     if (affected !== 1) throw new Error(`WagerTransaction ${id} not found for update`);
   }
