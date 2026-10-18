@@ -4,6 +4,7 @@ export class DomainError extends Error {
   constructor(
     public readonly code: FailureCode,
     message: string,
+    public readonly details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "DomainError";

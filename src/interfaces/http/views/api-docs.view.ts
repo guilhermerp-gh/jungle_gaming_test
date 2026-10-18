@@ -1,3 +1,5 @@
+import { APP_VERSION } from "../../../infrastructure/config/config";
+
 export function renderApiDocsView(): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -196,6 +198,8 @@ export function renderApiDocsView(): string {
       justify-content: space-between;
       flex-wrap: wrap;
       gap: 16px;
+      position: relative;
+      z-index: 100;
     }
 
     .auth-left {
@@ -268,31 +272,51 @@ export function renderApiDocsView(): string {
       cursor: pointer;
       position: relative;
     }
+    .auth-info-icon:hover {
+      background: rgba(56, 189, 248, 0.25);
+      border-color: #38bdf8;
+      z-index: 101;
+    }
 
     .auth-tooltip {
       visibility: hidden;
       opacity: 0;
       position: absolute;
-      top: calc(100% + 8px);
+      top: calc(100% + 10px);
       left: 0;
-      width: 310px;
-      background: #1e293b;
+      width: 330px;
+      max-width: min(340px, 85vw);
+      background: #0f172a;
       color: #f1f5f9;
-      border: 1px solid #475569;
-      border-radius: 8px;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 10px;
       padding: 12px 14px;
       font-size: 12px;
       line-height: 1.5;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7);
+      box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.8), 0 0 16px rgba(56, 189, 248, 0.2);
       z-index: 9999;
       pointer-events: none;
-      transition: opacity 0.2s ease, visibility 0.2s ease;
+      transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+      transform: translateY(-4px);
       text-align: left;
       font-weight: normal;
+    }
+    .auth-tooltip::before {
+      content: "";
+      position: absolute;
+      top: -6px;
+      left: 7px;
+      width: 10px;
+      height: 10px;
+      background: #0f172a;
+      border-left: 1px solid rgba(56, 189, 248, 0.4);
+      border-top: 1px solid rgba(56, 189, 248, 0.4);
+      transform: rotate(45deg);
     }
     .auth-info-icon:hover .auth-tooltip {
       visibility: visible;
       opacity: 1;
+      transform: translateY(0);
     }
 
     .target-url {
@@ -546,6 +570,124 @@ export function renderApiDocsView(): string {
       border-color: rgba(6, 182, 212, 0.3);
     }
 
+    .currency-chip.active {
+      background: rgba(16, 185, 129, 0.25) !important;
+      border-color: var(--accent-green) !important;
+      color: #34d399 !important;
+      font-weight: 700 !important;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.35);
+    }
+
+    .tx-preset-btn.active {
+      background: rgba(6, 182, 212, 0.22) !important;
+      border-color: #06b6d4 !important;
+      color: #38bdf8 !important;
+      font-weight: 700 !important;
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.35);
+    }
+
+    .tx-preset-btn.active-amber {
+      background: rgba(245, 158, 11, 0.25) !important;
+      border-color: #f59e0b !important;
+      color: #fef08a !important;
+      font-weight: 700 !important;
+      box-shadow: 0 0 14px rgba(245, 158, 11, 0.45);
+    }
+
+    .tx-preset-btn.active-green {
+      background: rgba(16, 185, 129, 0.25) !important;
+      border-color: #10b981 !important;
+      color: #6ee7b7 !important;
+      font-weight: 700 !important;
+      box-shadow: 0 0 14px rgba(16, 185, 129, 0.45);
+    }
+
+    .tx-preset-btn.active-purple {
+      background: rgba(139, 92, 246, 0.25) !important;
+      border-color: #8b5cf6 !important;
+      color: #ddd6fe !important;
+      font-weight: 700 !important;
+      box-shadow: 0 0 14px rgba(139, 92, 246, 0.45);
+    }
+
+    .tx-hint-box {
+      width: 100%;
+      margin-top: 8px;
+      margin-bottom: 8px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      font-size: 12px;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      line-height: 1.5;
+      box-sizing: border-box;
+    }
+
+    /* Real-World Architecture Deep Dive */
+    .realworld-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 18px;
+      margin-top: 14px;
+    }
+    .rw-card {
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #cbd5e1;
+    }
+    .rw-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .rw-header h4 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #f8fafc;
+      letter-spacing: -0.2px;
+    }
+    .rw-icon {
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    .rw-card ul {
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .rw-card li strong {
+      color: #f1f5f9;
+    }
+    .rw-card code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      background: rgba(255, 255, 255, 0.07);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #38bdf8;
+    }
+
+    @keyframes pulse-highlight {
+      0% { border-color: rgba(16, 185, 129, 0.9); box-shadow: 0 0 12px rgba(16, 185, 129, 0.4); }
+      100% { border-color: rgba(255, 255, 255, 0.1); box-shadow: none; }
+    }
+
+    .pulse-flash {
+      animation: pulse-highlight 0.5s ease-out;
+    }
+
     .action-row {
       display: flex;
       align-items: center;
@@ -655,7 +797,7 @@ export function renderApiDocsView(): string {
             <span>Distributed Wagering Processor</span>
             <span class="badge-live">
               <span class="pulse-dot"></span>
-              v0.6.0 &bull; OAS 3.0
+              v${APP_VERSION} &bull; OAS 3.0
             </span>
           </div>
         </div>
@@ -707,7 +849,7 @@ export function renderApiDocsView(): string {
           </div>
           <div class="guide-step">
             <span class="guide-step-title">3️⃣ POST /transactions (BET)</span>
-            <span class="guide-step-desc">Envie <code>BET</code> de <code>"30.00"</code> com <code>Idempotency-Key: req-001</code>. Saldo passa a ser <code>"70.00"</code>.</span>
+            <span class="guide-step-desc">Envie <code>BET</code> de <code>"10.00"</code> com <code>Idempotency-Key: req-001</code>. Saldo passa a ser <code>"90.00"</code> (ou saldo inicial - 10.00).</span>
           </div>
           <div class="guide-step">
             <span class="guide-step-title">4️⃣ Replay de Idempotência</span>
@@ -727,7 +869,56 @@ export function renderApiDocsView(): string {
           </div>
           <div class="guide-step">
             <span class="guide-step-title">8️⃣ Observabilidade &amp; SQS</span>
-            <span class="guide-step-desc">Abra o <a href="/dashboard" style="color: #38bdf8;">Dashboard</a> e acompanhe a Outbox e os Consumers.</span>
+            <span class="guide-step-desc">Abra o <a href="/dashboard" style="color: #38bdf8;">Dashboard</a> e acompanhe a Outbox, os Consumers e as Pendências.</span>
+          </div>
+          <div class="guide-step">
+            <span class="guide-step-title">9️⃣ Resolução Fora de Ordem (Fase 7)</span>
+            <span class="guide-step-desc">Clique no preset <code>⚡ WIN Fora de Ordem</code> e execute (retorna <code>202 Accepted</code> / <code>PENDING_REFERENCE</code>). Veja o gauge subir em <code>/dashboard</code>. Depois clique em <code>🎯 BET de Referência</code> e execute: o fast-path resolve o WIN de imediato!</span>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <!-- Real-World Architecture Deep Dive Card -->
+    <div class="guide-card" style="border-color: rgba(6, 182, 212, 0.3); background: rgba(18, 24, 38, 0.85);">
+      <details>
+        <summary style="color: #38bdf8;">
+          <span>📐 Guia Arquitetural: Idempotência Estrita &amp; Resolução Fora de Ordem</span>
+          <span style="font-size: 12px; color: var(--text-muted); font-weight: normal;">Clique para expandir / recolher</span>
+        </summary>
+        <div class="realworld-grid">
+          <!-- Card 1: Idempotency Lifecycle -->
+          <div class="rw-card">
+            <div class="rw-header">
+              <span class="rw-icon">🔑</span>
+              <h4>Mecanismo de Idempotência Estrita e Ciclo de Vida da Chave</h4>
+            </div>
+            <p><strong>Regras de unicidade de chave por transação, tolerância a falhas de rede e garantia de não duplicidade contábil:</strong></p>
+            <ul>
+              <li><strong>Unicidade Operacional:</strong> Toda nova transação financeira enviada pelo cliente (App, Frontend ou Provedor de Jogos) deve possuir um identificador UUID exclusivo no cabeçalho <code>Idempotency-Key</code>.</li>
+              <li><strong>Tratamento de Retentativas de Rede (<em>Network Retries</em>):</strong> A reutilização da mesma chave é restrita à recuperação de falhas de transporte ou timeouts. Ao receber uma chave idêntica com o mesmo payload, o motor responde <code>200 OK</code> com <code>idempotentReplay: true</code>, retornando o resultado original sem duplicar créditos ou débitos.</li>
+              <li><strong>Prevenção de Colisão Contábil (<code>409 IDEMPOTENCY_CONFLICT</code>):</strong> Se uma chave já registrada for submetida com dados divergentes (valor, moeda ou tipo alterados), a requisição é rejeitada para preservar a imutabilidade do histórico contábil.</li>
+            </ul>
+          </div>
+
+          <!-- Card 2: Out-of-Order Resolution & Reference Bet -->
+          <div class="rw-card">
+            <div class="rw-header">
+              <span class="rw-icon">⚡</span>
+              <h4>Resolução Assíncrona de Transações Fora de Ordem (Pending Reference Resolver)</h4>
+            </div>
+            <p><strong>Mecanismo de consistência eventual para liquidações financeiras dependentes em ambientes distribuídos:</strong></p>
+            <ul>
+              <li><strong>Âncora de Referência Causal (<code>BET</code>):</strong> A aposta inicial serve como transação de referência mandatória para processar eventos subsequentes (<code>WIN</code>, <code>LOSS</code> ou <code>REFUND</code>).</li>
+              <li><strong>Desordenamento em Mensageria (<em>Out-of-Order</em>):</strong> Em decorrência de latências assimétricas de rede ou particionamento em filas SQS, a notificação de um <code>WIN</code> pode chegar antes da gravação da respectiva <code>BET</code>.</li>
+              <li><strong>Fluxo de Reconciliação e Liquidação:</strong>
+                <ol style="margin-top: 6px; padding-left: 18px; display: flex; flex-direction: column; gap: 4px;">
+                  <li><strong>Acolhimento Não Bloqueante:</strong> O <code>WIN</code> é acolhido com status <code>PENDING_REFERENCE</code> e resposta <code>202 Accepted</code>, mantendo o saldo provisoriamente inalterado.</li>
+                  <li><strong>Fast-Path e Worker Reconciliador:</strong> No momento em que a <code>BET</code> é confirmada no banco, o Fast-Path síncrono ou o worker periódico (com <code>FOR UPDATE SKIP LOCKED</code>) detecta a pendência associada.</li>
+                  <li><strong>Liquidação Ledger Atômica:</strong> Débito da <code>BET</code> e crédito do <code>WIN</code> são liquidados atomicamente, consolidando o saldo final exato e emitindo registros imutáveis no ledger.</li>
+                </ol>
+              </li>
+            </ul>
           </div>
         </div>
       </details>
@@ -735,18 +926,24 @@ export function renderApiDocsView(): string {
 
     <!-- Filter Bar -->
     <div class="filter-bar">
-      <span style="font-size: 13px; font-weight: 600; color: #94a3b8;">Filtrar tags:</span>
-      <button class="filter-chip active" onclick="filterTag('all')">Todos</button>
-      <button class="filter-chip" onclick="filterTag('wallets')">wallets</button>
-      <button class="filter-chip" onclick="filterTag('transactions')">transactions</button>
-      <button class="filter-chip" onclick="filterTag('observability')">observability</button>
-      <button class="filter-chip" onclick="filterTag('health')">health</button>
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <span style="font-size: 13px; font-weight: 600; color: #94a3b8;">Filtrar tags:</span>
+        <button class="filter-chip tag-filter active" onclick="filterTag('all')">Todos</button>
+        <button class="filter-chip tag-filter" onclick="filterTag('wallets')">wallets</button>
+        <button class="filter-chip tag-filter" onclick="filterTag('transactions')">transactions</button>
+        <button class="filter-chip tag-filter" onclick="filterTag('observability')">observability</button>
+        <button class="filter-chip tag-filter" onclick="filterTag('health')">health</button>
+      </div>
+      <div style="margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="filter-chip" onclick="setAllCards(true)" title="Expandir todos os endpoints" style="font-size: 11px; padding: 6px 12px;">📂 Expandir Todos</button>
+        <button class="filter-chip" onclick="setAllCards(false)" title="Recolher todos os endpoints" style="font-size: 11px; padding: 6px 12px;">📁 Recolher Todos</button>
+      </div>
     </div>
 
     <!-- Endpoints List -->
     <div class="endpoints-list">
       <!-- EP 1: POST /wallets -->
-      <div class="ep-card open" data-tag="wallets" id="ep-post-wallets">
+      <div class="ep-card" data-tag="wallets" id="ep-post-wallets">
         <div class="ep-summary" onclick="toggleCard('ep-post-wallets')">
           <div class="ep-left">
             <span class="method-badge method-post">POST</span>
@@ -757,19 +954,25 @@ export function renderApiDocsView(): string {
           <span class="ep-arrow">▼</span>
         </div>
         <div class="ep-details">
-          <p class="ep-desc">Cria uma carteira única para o jogador na moeda especificada, gravando simultaneamente o lançamento de abertura (OPENING) no ledger contábil imutável.</p>
+          <p class="ep-desc">Cria uma carteira única para o jogador na moeda especificada (1 jogador = 1 carteira por moeda), gravando simultaneamente o lançamento de abertura (OPENING) no ledger contábil imutável.</p>
           <div class="form-grid">
             <div class="input-group">
-              <label class="input-label">Corpo da Requisição (JSON)</label>
-              <textarea id="body-post-wallets" class="json-textarea">{
-  "playerId": "11111111-1111-4111-8111-111111111111",
-  "currency": "BRL",
-  "initialBalance": "100.00"
-}</textarea>
+              <div class="input-label">
+                <span>Corpo da Requisição (JSON)</span>
+                <div class="quick-presets">
+                  <span style="font-size: 11px; color: #64748b;">Jogador:</span>
+                  <button class="preset-btn" style="border-color: #3b82f6; color: #60a5fa;" onclick="generateNewPlayerWalletPayload()">🎲 Sortear Novo Player</button>
+                  <span style="font-size: 11px; color: #64748b; margin-left: 10px;">Moeda da Carteira:</span>
+                  <button id="btn-curr-BRL" class="preset-btn currency-chip active" onclick="setWalletCurrency('BRL')">BRL (R$)</button>
+                  <button id="btn-curr-USD" class="preset-btn currency-chip" onclick="setWalletCurrency('USD')">USD ($)</button>
+                  <button id="btn-curr-EUR" class="preset-btn currency-chip" onclick="setWalletCurrency('EUR')">EUR (€)</button>
+                </div>
+              </div>
+              <textarea id="body-post-wallets" class="json-textarea"></textarea>
             </div>
           </div>
           <div class="action-row">
-            <button class="btn-exec" onclick="execRequest('post-wallets', 'POST', '/wallets', false)">Executar Requisição</button>
+            <button class="btn-exec" onclick="execPostWallets()">Executar Requisição</button>
           </div>
           <div id="res-post-wallets" class="response-box">
             <div class="response-header">
@@ -815,8 +1018,56 @@ export function renderApiDocsView(): string {
         </div>
       </div>
 
+      <!-- EP 2.5: POST /wallets/:id/deposit -->
+      <div class="ep-card" data-tag="wallets" id="ep-post-deposit">
+        <div class="ep-summary" onclick="toggleCard('ep-post-deposit')">
+          <div class="ep-left">
+            <span class="method-badge method-post">POST</span>
+            <span class="ep-path">/wallets/{id}/deposit</span>
+            <span class="ep-title">Efetuar depósito e creditar saldo</span>
+            <span class="ep-tag">wallets</span>
+          </div>
+          <span class="ep-arrow">▼</span>
+        </div>
+        <div class="ep-details">
+          <p class="ep-desc">Credita fundos na carteira com lock pessimista (<code>FOR UPDATE</code>), gravação de lançamento imutável no ledger contábil, idempotência estrita via header e evento emitido na Outbox.</p>
+          <div class="form-grid">
+            <div class="input-group">
+              <label class="input-label">ID da Carteira (UUID)</label>
+              <input type="text" id="param-deposit-wallet-id" class="text-input" placeholder="Cole aqui o walletId" />
+            </div>
+            <div class="input-group">
+              <div class="input-label">
+                <span>Corpo do Depósito (JSON)</span>
+                <div class="quick-presets">
+                  <span style="font-size: 11px; color: #64748b;">Valores rápidos:</span>
+                  <button class="preset-btn" onclick="setDepositAmount('20.00')">+ R$ 20,00</button>
+                  <button class="preset-btn" onclick="setDepositAmount('50.00')">+ R$ 50,00</button>
+                  <button class="preset-btn" onclick="setDepositAmount('100.00')">+ R$ 100,00</button>
+                </div>
+              </div>
+              <textarea id="body-post-deposit" class="json-textarea">{
+  "amount": "50.00",
+  "providerId": "PIX_GATEWAY"
+}</textarea>
+            </div>
+          </div>
+          <div class="action-row">
+            <button class="btn-exec" onclick="execPostDeposit()">Executar Depósito</button>
+          </div>
+          <div id="res-post-deposit" class="response-box">
+            <div class="response-header">
+              <span id="status-post-deposit" class="status-badge-res"></span>
+              <span id="time-post-deposit" style="color: #64748b;"></span>
+              <button class="copy-btn" onclick="copyResponse('post-deposit')">Copiar</button>
+            </div>
+            <pre id="body-res-post-deposit" class="response-body"></pre>
+          </div>
+        </div>
+      </div>
+
       <!-- EP 3: POST /transactions -->
-      <div class="ep-card open" data-tag="transactions" id="ep-post-transactions">
+      <div class="ep-card" data-tag="transactions" id="ep-post-transactions">
         <div class="ep-summary" onclick="toggleCard('ep-post-transactions')">
           <div class="ep-left">
             <span class="method-badge method-post">POST</span>
@@ -834,22 +1085,36 @@ export function renderApiDocsView(): string {
                 <span>Corpo da Requisição (JSON)</span>
                 <div class="quick-presets">
                   <span style="font-size: 11px; color: #64748b;">Predefinições:</span>
-                  <button class="preset-btn" onclick="setTxPreset('BET')">Aposta BET (R$ 30,00)</button>
-                  <button class="preset-btn" onclick="setTxPreset('WIN')">Prêmio WIN (R$ 50,00)</button>
-                  <button class="preset-btn" onclick="setTxPreset('REFUND')">Estorno REFUND (R$ 30,00)</button>
+                  <button id="btn-tx-BET" class="preset-btn tx-preset-btn active" onclick="setTxPreset('BET')">Aposta BET (R$ 10,00)</button>
+                  <button id="btn-tx-WIN" class="preset-btn tx-preset-btn" onclick="setTxPreset('WIN')">Prêmio WIN (R$ 50,00)</button>
+                  <button id="btn-tx-REFUND" class="preset-btn tx-preset-btn" onclick="setTxPreset('REFUND')">Estorno REFUND (R$ 10,00)</button>
+                  <button id="btn-tx-OUT_OF_ORDER_WIN" class="preset-btn tx-preset-btn" style="border-color: #f59e0b; color: #fbbf24;" onclick="setTxPreset('OUT_OF_ORDER_WIN')">⚡ WIN Fora de Ordem (Fase 7)</button>
+                  <button id="btn-tx-MATCHING_BET" class="preset-btn tx-preset-btn" style="border-color: #10b981; color: #34d399;" onclick="setTxPreset('MATCHING_BET')">🎯 BET de Referência (Fase 7)</button>
                 </div>
               </div>
+              <div id="tx-hint-banner" class="tx-hint-box" style="display: none;"></div>
               <textarea id="body-post-transactions" class="json-textarea">{
   "walletId": "INSIRA_O_WALLET_ID_AQUI",
+  "playerId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+  "currency": "BRL",
   "providerId": "provider-pragmatic",
   "externalTransactionId": "tx-ext-001",
+  "roundId": "round-001",
+  "gameId": "game-sparks",
   "kind": "BET",
-  "amount": "30.00"
+  "amount": "10.00"
 }</textarea>
             </div>
           </div>
-          <div class="action-row">
-            <button class="btn-exec" onclick="execPostTransactions()">Executar Requisição</button>
+          <div class="action-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <button class="btn-exec" onclick="execPostTransactions()">Executar Requisição</button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); background: rgba(255, 255, 255, 0.04); padding: 6px 12px; border-radius: 8px; border: 1px solid var(--card-border);">
+              <span>Chave de Idempotência:</span>
+              <code id="tx-current-idempotency-key" style="color: #38bdf8; font-family: 'JetBrains Mono', monospace; font-weight: 700;">req-001</code>
+              <button class="preset-btn" style="border-color: #38bdf8; color: #38bdf8; padding: 2px 8px;" onclick="generateNewKey()">⚡ Nova Chave</button>
+            </div>
           </div>
           <div id="res-post-transactions" class="response-box">
             <div class="response-header">
@@ -858,6 +1123,39 @@ export function renderApiDocsView(): string {
               <button class="copy-btn" onclick="copyResponse('post-transactions')">Copiar</button>
             </div>
             <pre id="body-res-post-transactions" class="response-body"></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- EP 3.5: GET /transactions/:id -->
+      <div class="ep-card" data-tag="transactions" id="ep-get-transaction">
+        <div class="ep-summary" onclick="toggleCard('ep-get-transaction')">
+          <div class="ep-left">
+            <span class="method-badge method-get">GET</span>
+            <span class="ep-path">/transactions/{id}</span>
+            <span class="ep-title">Consultar status e ciclo de vida da transação</span>
+            <span class="ep-tag">transactions</span>
+          </div>
+          <span class="ep-arrow">▼</span>
+        </div>
+        <div class="ep-details">
+          <p class="ep-desc">Consulta o estado operacional da transação (<code>PROCESSED</code>, <code>PENDING_REFERENCE</code> ou <code>REJECTED</code>), exibindo valores, tentativas de reconciliação e referências causais vinculadas.</p>
+          <div class="form-grid">
+            <div class="input-group">
+              <label class="input-label">ID da Transação (UUID interno retornado no POST)</label>
+              <input type="text" id="param-get-tx-id" class="text-input" placeholder="Cole aqui o id da transação retornado no POST /transactions" />
+            </div>
+          </div>
+          <div class="action-row">
+            <button class="btn-exec" onclick="execGetTransaction()">Executar Requisição</button>
+          </div>
+          <div id="res-get-transaction" class="response-box">
+            <div class="response-header">
+              <span id="status-get-transaction" class="status-badge-res"></span>
+              <span id="time-get-transaction" style="color: #64748b;"></span>
+              <button class="copy-btn" onclick="copyResponse('get-transaction')">Copiar</button>
+            </div>
+            <pre id="body-res-get-transaction" class="response-body"></pre>
           </div>
         </div>
       </div>
@@ -971,7 +1269,11 @@ export function renderApiDocsView(): string {
 
     function generateNewKey() {
       var rand = 'req-' + Math.random().toString(36).substring(2, 8);
-      document.getElementById('globalIdempotencyKey').value = rand;
+      var globalInput = document.getElementById('globalIdempotencyKey');
+      if (globalInput) globalInput.value = rand;
+      var txKeyBadge = document.getElementById('tx-current-idempotency-key');
+      if (txKeyBadge) txKeyBadge.textContent = rand;
+      return rand;
     }
 
     function toggleCard(cardId) {
@@ -979,8 +1281,18 @@ export function renderApiDocsView(): string {
       if (el) el.classList.toggle('open');
     }
 
+    function setAllCards(open) {
+      document.querySelectorAll('.ep-card').forEach(function(card) {
+        if (open) {
+          card.classList.add('open');
+        } else {
+          card.classList.remove('open');
+        }
+      });
+    }
+
     function filterTag(tag) {
-      document.querySelectorAll('.filter-chip').forEach(function(chip) {
+      document.querySelectorAll('.filter-chip.tag-filter').forEach(function(chip) {
         chip.classList.toggle('active', chip.textContent === tag || (tag === 'all' && chip.textContent === 'Todos'));
       });
       document.querySelectorAll('.ep-card').forEach(function(card) {
@@ -992,22 +1304,129 @@ export function renderApiDocsView(): string {
       });
     }
 
+    var lastPendingRefBetId = null;
+    var lastSuccessfulBetExternalId = 'tx-ext-xuwto';
+    var lastSuccessfulBetAmount = '10.00';
+    var lastSuccessfulBetRefunded = false;
+
+    function updateTxChips(kind) {
+      var kinds = ['BET', 'WIN', 'REFUND', 'OUT_OF_ORDER_WIN', 'MATCHING_BET'];
+      kinds.forEach(function(k) {
+        var btn = document.getElementById('btn-tx-' + k);
+        if (btn) {
+          btn.classList.remove('active', 'active-amber', 'active-green', 'active-purple');
+          if (k === kind) {
+            if (k === 'OUT_OF_ORDER_WIN') {
+              btn.classList.add('active-amber');
+            } else if (k === 'MATCHING_BET') {
+              btn.classList.add('active-green');
+            } else if (k === 'REFUND') {
+              btn.classList.add('active-purple');
+            } else {
+              btn.classList.add('active');
+            }
+          }
+        }
+      });
+
+      var hintBanner = document.getElementById('tx-hint-banner');
+      if (hintBanner) {
+        hintBanner.style.display = 'flex';
+        if (kind === 'OUT_OF_ORDER_WIN') {
+          hintBanner.innerHTML = '⚡ <strong>WIN Fora de Ordem selecionado:</strong> apontando para referência futura <code style="color: #fbbf24; background: rgba(245, 158, 11, 0.15); padding: 2px 6px; border-radius: 4px;">' + (lastPendingRefBetId || '...') + '</code>. Clique em <strong>Executar Requisição</strong> (retornará 202 Accepted).';
+        } else if (kind === 'MATCHING_BET') {
+          hintBanner.innerHTML = '🎯 <strong>BET de Referência selecionada:</strong> criando aposta com ID <code style="color: #34d399; background: rgba(16, 185, 129, 0.15); padding: 2px 6px; border-radius: 4px;">' + (lastPendingRefBetId || '...') + '</code>. Ao executar, o Fast-Path resolverá o WIN pendente de imediato!';
+        } else if (kind === 'BET') {
+          hintBanner.innerHTML = '🎲 <strong>Aposta BET selecionada:</strong> debitará o valor da carteira e gravará lançamento contábil no ledger.';
+        } else if (kind === 'WIN') {
+          hintBanner.innerHTML = '💰 <strong>Prêmio WIN selecionado:</strong> creditará R$ 50,00 na carteira e emitirá evento no Outbox.';
+        } else if (kind === 'REFUND') {
+          var refId = lastSuccessfulBetExternalId || 'tx-ext-xuwto';
+          var refAmt = lastSuccessfulBetAmount || '10.00';
+          if (lastSuccessfulBetRefunded) {
+            hintBanner.innerHTML = '🔄 <strong>Estorno REFUND:</strong> A aposta de referência <code style="color: #c084fc; background: rgba(139, 92, 246, 0.15); padding: 2px 6px; border-radius: 4px;">' + refId + '</code> <strong>já foi estornada com sucesso!</strong> Uma nova tentativa de estorno para esta mesma referência será rejeitada com <code style="color: #f87171;">422 ALREADY_REVERSED</code> (proteção contra estorno duplo).';
+          } else {
+            hintBanner.innerHTML = '🔄 <strong>Estorno REFUND selecionado:</strong> estorna a aposta de referência <code style="color: #c084fc; background: rgba(139, 92, 246, 0.15); padding: 2px 6px; border-radius: 4px;">' + refId + '</code> (' + (lastCreatedCurrency || 'BRL') + ' ' + refAmt + '). Ao executar, o valor é creditado de volta no saldo!';
+          }
+        }
+      }
+    }
+
     function setTxPreset(kind) {
-      var walletId = lastCreatedWalletId || 'INSIRA_O_WALLET_ID_AQUI';
-      var key = document.getElementById('globalIdempotencyKey').value || 'req-001';
+      // Gera automaticamente uma nova chave de idempotência para o novo preset
+      generateNewKey();
+
+      var currentBodyVal = null;
+      try {
+        var existingText = document.getElementById('body-post-transactions').value;
+        currentBodyVal = JSON.parse(existingText);
+      } catch(e) {}
+
+      var walletId = (currentBodyVal && currentBodyVal.walletId && currentBodyVal.walletId !== 'INSIRA_O_WALLET_ID_AQUI')
+        ? currentBodyVal.walletId
+        : (lastCreatedWalletId || '4a89972f-1ac6-4cf8-949f-c8c9605baf27');
+      var playerId = (currentBodyVal && currentBodyVal.playerId)
+        ? currentBodyVal.playerId
+        : (lastCreatedPlayerId || 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11');
+      var currency = (currentBodyVal && currentBodyVal.currency)
+        ? currentBodyVal.currency
+        : (lastCreatedCurrency || 'BRL');
       var extId = 'tx-ext-' + Math.random().toString(36).substring(2, 7);
 
-      var payload = {
-        walletId: walletId,
-        providerId: 'provider-pragmatic',
-        externalTransactionId: extId,
-        kind: kind,
-        amount: kind === 'BET' ? '30.00' : (kind === 'WIN' ? '50.00' : '30.00')
-      };
-      if (kind === 'REFUND') {
-        payload.referenceTransactionId = 'tx-original-id-se-houver';
+      var payload;
+      if (kind === 'OUT_OF_ORDER_WIN') {
+        if (!lastPendingRefBetId) {
+          lastPendingRefBetId = 'bet-ref-' + Math.random().toString(36).substring(2, 7);
+        }
+        payload = {
+          walletId: walletId,
+          playerId: playerId,
+          currency: currency,
+          providerId: 'provider-pragmatic',
+          externalTransactionId: 'win-ahead-' + Math.random().toString(36).substring(2, 7),
+          roundId: 'round-001',
+          gameId: 'game-sparks',
+          kind: 'WIN',
+          amount: '50.00',
+          referenceExternalTransactionId: lastPendingRefBetId
+        };
+      } else if (kind === 'MATCHING_BET') {
+        var betExtId = lastPendingRefBetId || ('bet-ref-' + Math.random().toString(36).substring(2, 7));
+        lastPendingRefBetId = betExtId;
+        payload = {
+          walletId: walletId,
+          playerId: playerId,
+          currency: currency,
+          providerId: 'provider-pragmatic',
+          externalTransactionId: betExtId,
+          roundId: 'round-001',
+          gameId: 'game-sparks',
+          kind: 'BET',
+          amount: '10.00'
+        };
+      } else {
+        payload = {
+          walletId: walletId,
+          playerId: playerId,
+          currency: currency,
+          providerId: 'provider-pragmatic',
+          externalTransactionId: extId,
+          roundId: 'round-001',
+          gameId: 'game-sparks',
+          kind: kind,
+          amount: kind === 'BET' ? '10.00' : (kind === 'WIN' ? '50.00' : (lastSuccessfulBetAmount || '10.00'))
+        };
+        if (kind === 'REFUND') {
+          payload.amount = lastSuccessfulBetAmount || '10.00';
+          payload.referenceExternalTransactionId = lastSuccessfulBetExternalId || lastPendingRefBetId || 'tx-ext-xuwto';
+        }
       }
-      document.getElementById('body-post-transactions').value = JSON.stringify(payload, null, 2);
+      var el = document.getElementById('body-post-transactions');
+      if (el) {
+        el.value = JSON.stringify(payload, null, 2);
+        flashElement(el);
+      }
+      updateTxChips(kind);
     }
 
     async function execRequest(targetId, method, path, useIdempotency, body) {
@@ -1041,23 +1460,91 @@ export function renderApiDocsView(): string {
         var json;
         try { json = JSON.parse(text); } catch(e) { json = text; }
 
-        statusEl.textContent = res.status + ' ' + res.statusText;
+        statusEl.textContent = res.status + ' ' + res.statusText + (json && json.idempotentReplay ? ' 🔁 (Replay Idempotente)' : '');
         statusEl.className = 'status-badge-res ' + (res.status < 300 ? 'status-2xx' : (res.status < 500 ? 'status-4xx' : 'status-5xx'));
         timeEl.textContent = duration;
 
+        var bannerId = 'alert-res-' + targetId;
+        var existingBanner = document.getElementById(bannerId);
+        if (existingBanner) existingBanner.remove();
+
+        if (json && json.idempotentReplay) {
+          var alertDiv = document.createElement('div');
+          alertDiv.id = bannerId;
+          alertDiv.style.cssText = 'background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.4); color: #38bdf8; padding: 10px 14px; border-radius: 8px; margin: 10px 0; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px;';
+          var replayMsg = (json.kind === 'REFUND' || (json.message && json.message.indexOf('estorno') !== -1))
+            ? '🔁 <strong>Replay de Idempotência:</strong> Este estorno já foi realizado anteriormente com esta mesma Idempotency-Key. O saldo NÃO foi creditado novamente!'
+            : (json.kind === 'BET'
+              ? '🔁 <strong>Replay de Idempotência:</strong> Esta aposta já foi processada anteriormente. O saldo NÃO foi debitado novamente!'
+              : '🔁 <strong>Replay de Idempotência:</strong> Esta transação já foi processada anteriormente com esta mesma chave. Saldo inalterado!');
+          alertDiv.innerHTML = replayMsg;
+          boxEl.insertBefore(alertDiv, bodyEl);
+        } else if (json && json.error && json.error.code === 'ALREADY_REVERSED') {
+          var alertDiv = document.createElement('div');
+          alertDiv.id = bannerId;
+          alertDiv.style.cssText = 'background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; padding: 10px 14px; border-radius: 8px; margin: 10px 0; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px;';
+          var refName = (json.error.details && json.error.details.referenceExternalTransactionId) ? json.error.details.referenceExternalTransactionId : '';
+          alertDiv.innerHTML = '🚫 <strong>Aposta Já Estornada:</strong> A transação de referência <code>' + refName + '</code> já havia sido estornada anteriormente. O sistema bloqueou a segunda reversão!';
+          boxEl.insertBefore(alertDiv, bodyEl);
+        }
+
         if (typeof json === 'object') {
           bodyEl.textContent = JSON.stringify(json, null, 2);
-          if (json && json.id && path === '/wallets') {
-            lastCreatedWalletId = json.id;
-            // Pre-fill next inputs
-            var wInput = document.getElementById('param-get-wallet-id');
-            if (wInput) wInput.value = json.id;
-            var lInput = document.getElementById('param-ledger-wallet-id');
-            if (lInput) lInput.value = json.id;
-            var rInput = document.getElementById('param-rec-wallet-id');
-            if (rInput) rInput.value = json.id;
-            // Pre-fill transaction body
-            setTxPreset('BET');
+          if (path === '/transactions' && json) {
+            if (json.id) {
+              var txInput = document.getElementById('param-get-tx-id');
+              if (txInput) txInput.value = json.id;
+            }
+            if (json.status === 'PROCESSED' && json.kind === 'BET' && json.externalTransactionId) {
+              lastSuccessfulBetExternalId = json.externalTransactionId;
+              lastSuccessfulBetRefunded = false;
+              if (json.amount) {
+                lastSuccessfulBetAmount = json.amount;
+                var refundBtn = document.getElementById('btn-tx-REFUND');
+                if (refundBtn) refundBtn.textContent = 'Estorno REFUND (R$ ' + json.amount.replace('.', ',') + ')';
+              }
+            } else if (json.status === 'PROCESSED' && json.kind === 'REFUND') {
+              lastSuccessfulBetRefunded = true;
+              var refundBtn = document.getElementById('btn-tx-REFUND');
+              if (refundBtn) refundBtn.textContent = 'Estornado ✓ (R$ ' + (json.amount ? json.amount.replace('.', ',') : lastSuccessfulBetAmount.replace('.', ',')) + ')';
+              var hintBanner = document.getElementById('tx-hint-banner');
+              if (hintBanner) {
+                hintBanner.style.display = 'flex';
+                if (json.idempotentReplay) {
+                  hintBanner.innerHTML = '🔁 <strong>Replay de Idempotência:</strong> Este estorno já foi realizado anteriormente com esta mesma Idempotency-Key. O saldo não foi alterado novamente!';
+                } else {
+                  hintBanner.innerHTML = '✅ <strong>Estorno Concluído com Sucesso:</strong> A aposta de referência <code style="color: #c084fc; background: rgba(139, 92, 246, 0.15); padding: 2px 6px; border-radius: 4px;">' + (json.referenceExternalTransactionId || lastSuccessfulBetExternalId) + '</code> já foi estornada e o saldo creditado! Uma nova tentativa para esta mesma aposta será bloqueada com <code>422 ALREADY_REVERSED</code>.';
+                }
+              }
+            } else if (json.error && json.error.code === 'ALREADY_REVERSED') {
+              lastSuccessfulBetRefunded = true;
+              var hintBanner = document.getElementById('tx-hint-banner');
+              if (hintBanner) {
+                hintBanner.style.display = 'flex';
+                hintBanner.innerHTML = '🚫 <strong>Aposta Já Estornada:</strong> A aposta de referência já havia sido estornada anteriormente. Segunda tentativa rejeitada com <code>422 ALREADY_REVERSED</code>.';
+              }
+            }
+          }
+          if (json && json.id) {
+            if (path === '/wallets' || path.indexOf('/wallets/') === 0) {
+              lastCreatedWalletId = json.id;
+              if (json.playerId) lastCreatedPlayerId = json.playerId;
+              if (json.currency) lastCreatedCurrency = json.currency;
+
+              // Pre-fill next inputs
+              var wInput = document.getElementById('param-get-wallet-id');
+              if (wInput) wInput.value = json.id;
+              var dInput = document.getElementById('param-deposit-wallet-id');
+              if (dInput) dInput.value = json.id;
+              var lInput = document.getElementById('param-ledger-wallet-id');
+              if (lInput) lInput.value = json.id;
+              var rInput = document.getElementById('param-rec-wallet-id');
+              if (rInput) rInput.value = json.id;
+              // Pre-fill transaction body
+              setTxPreset('BET');
+              // Prepare a fresh player ID for any subsequent wallet creation
+              generateNewPlayerWalletPayload(json.currency || 'BRL');
+            }
           }
         } else {
           bodyEl.textContent = json;
@@ -1069,15 +1556,103 @@ export function renderApiDocsView(): string {
       }
     }
 
+    function execPostWallets() {
+      var body = document.getElementById('body-post-wallets').value;
+      execRequest('post-wallets', 'POST', '/wallets', false, body);
+    }
+
+    function flashElement(el) {
+      if (!el) return;
+      el.classList.remove('pulse-flash');
+      void el.offsetWidth;
+      el.classList.add('pulse-flash');
+    }
+
+    function updateCurrencyChips(currency) {
+      ['BRL', 'USD', 'EUR'].forEach(function(c) {
+        var btn = document.getElementById('btn-curr-' + c);
+        if (btn) {
+          if (c === currency) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        }
+      });
+    }
+
+    function generateNewPlayerWalletPayload(currency) {
+      var curr = currency;
+      if (!curr) {
+        try {
+          var currentVal = JSON.parse(document.getElementById('body-post-wallets').value);
+          curr = currentVal.currency || 'BRL';
+        } catch(e) {
+          curr = 'BRL';
+        }
+      }
+      var pid = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'a0eebc99-9c0b-4ef8-bb6d-' + Math.random().toString(36).substring(2, 14);
+      var payload = {
+        playerId: pid,
+        currency: curr,
+        initialBalance: '100.00'
+      };
+      var el = document.getElementById('body-post-wallets');
+      if (el) {
+        el.value = JSON.stringify(payload, null, 2);
+        flashElement(el);
+      }
+      updateCurrencyChips(curr);
+    }
+
+    function setWalletCurrency(currency) {
+      updateCurrencyChips(currency);
+      var el = document.getElementById('body-post-wallets');
+      try {
+        var val = JSON.parse(el.value);
+        val.currency = currency;
+        el.value = JSON.stringify(val, null, 2);
+        flashElement(el);
+      } catch (e) {
+        generateNewPlayerWalletPayload(currency);
+      }
+    }
+
     function execGetWallet() {
       var id = document.getElementById('param-get-wallet-id').value.trim();
       if (!id) { alert('Informe o ID da carteira'); return; }
       execRequest('get-wallet', 'GET', '/wallets/' + encodeURIComponent(id), false);
     }
 
+    function setDepositAmount(amount) {
+      var el = document.getElementById('body-post-deposit');
+      try {
+        var val = JSON.parse(el.value);
+        val.amount = amount;
+        el.value = JSON.stringify(val, null, 2);
+        flashElement(el);
+      } catch (e) {
+        el.value = JSON.stringify({ amount: amount, providerId: 'PIX_GATEWAY' }, null, 2);
+        flashElement(el);
+      }
+    }
+
+    function execPostDeposit() {
+      var id = document.getElementById('param-deposit-wallet-id').value.trim() || lastCreatedWalletId;
+      if (!id) { alert('Informe o ID da carteira'); return; }
+      var body = document.getElementById('body-post-deposit').value;
+      execRequest('post-deposit', 'POST', '/wallets/' + encodeURIComponent(id) + '/deposit', true, body);
+    }
+
     function execPostTransactions() {
       var body = document.getElementById('body-post-transactions').value;
       execRequest('post-transactions', 'POST', '/transactions', true, body);
+    }
+
+    function execGetTransaction() {
+      var id = document.getElementById('param-get-tx-id').value.trim();
+      if (!id) { alert('Informe o ID da transação (UUID)'); return; }
+      execRequest('get-transaction', 'GET', '/transactions/' + encodeURIComponent(id), false);
     }
 
     function execGetLedger() {
@@ -1098,6 +1673,11 @@ export function renderApiDocsView(): string {
         alert('Resposta copiada para a área de transferência!');
       });
     }
+
+    // Inicialização automática de carteira com UUID único e preset BET
+    generateNewPlayerWalletPayload('BRL');
+    generateNewKey();
+    setTxPreset('BET');
   </script>
 </body>
 </html>

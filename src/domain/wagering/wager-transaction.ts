@@ -2,7 +2,7 @@ import { InvariantViolation } from "../errors/domain-error";
 import type { FailureCode } from "../errors/failure-code";
 import { Money } from "../money/money";
 
-export type WagerKind = "BET" | "WIN" | "LOSS" | "REFUND" | "ROLLBACK" | "OPENING";
+export type WagerKind = "BET" | "WIN" | "LOSS" | "REFUND" | "ROLLBACK" | "OPENING" | "DEPOSIT";
 export type WagerStatus = "PENDING" | "PENDING_REFERENCE" | "PROCESSED" | "REJECTED" | "FAILED";
 
 const TRANSITIONS: Record<WagerStatus, WagerStatus[]> = {
@@ -76,6 +76,7 @@ export class WagerTransaction {
   get id(): string { return this.p.id; }
   get status(): WagerStatus { return this.p.status; }
   get kind(): WagerKind { return this.p.kind; }
+  get failureCode(): FailureCode | null { return this.p.failureCode; }
   get isTerminal(): boolean { return TRANSITIONS[this.p.status].length === 0; }
 
   markProcessed(resultBalance: Money, now: Date, referenceTransactionId?: string | null): void {

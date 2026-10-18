@@ -10,11 +10,17 @@ import {
   defaultSqsConsumerMetrics,
   SqsConsumerMetrics,
 } from "../../infrastructure/observability/sqs-consumer-metrics";
+import {
+  defaultPendingReferenceMetrics,
+  PendingReferenceMetrics,
+} from "../../infrastructure/observability/pending-reference-metrics";
 import { createOrmConfig } from "../../infrastructure/persistence/mikro-orm/orm-config";
 import { MikroOrmUnitOfWork } from "../../infrastructure/persistence/repositories/mikro-orm-uow";
 import { SqsMessagePublisher } from "../../infrastructure/sqs/sqs-message-publisher";
 import { OutboxPublisherWorker } from "./outbox-publisher.worker";
 import { WagerTransactionsConsumerWorker } from "./wager-transactions-consumer.worker";
+import { PendingReferenceResolverWorker } from "./pending-reference-resolver.worker";
+import { ResolvePendingReferencesUseCase } from "../../application/use-cases/resolve-pending-references.use-case";
 
 export const WORKERS_MESSAGE_PUBLISHER = "WORKERS_MESSAGE_PUBLISHER";
 export const WORKERS_UNIT_OF_WORK = "WORKERS_UNIT_OF_WORK";
@@ -26,6 +32,7 @@ export interface WorkersModuleOptions {
   publisher?: MessagePublisherPort;
   metrics?: OutboxMetrics;
   consumerMetrics?: SqsConsumerMetrics;
+  resolverMetrics?: PendingReferenceMetrics;
 }
 
 @Module({})
@@ -41,6 +48,10 @@ export class WorkersModule {
       {
         provide: SqsConsumerMetrics,
         useValue: options?.consumerMetrics ?? defaultSqsConsumerMetrics,
+      },
+      {
+        provide: PendingReferenceMetrics,
+        useValue: options?.resolverMetrics ?? defaultPendingReferenceMetrics,
       },
       {
         provide: WORKERS_MESSAGE_PUBLISHER,
@@ -65,8 +76,16 @@ export class WorkersModule {
         },
         inject: [WORKERS_UNIT_OF_WORK, WORKERS_MESSAGE_PUBLISHER, OutboxMetrics],
       },
+      {
+        provide: ResolvePendingReferencesUseCase,
+        useFactory: (uow: UnitOfWork, metrics: PendingReferenceMetrics) => {
+          return new ResolvePendingReferencesUseCase(uow, metrics);
+        },
+        inject: [WORKERS_UNIT_OF_WORK, PendingReferenceMetrics],
+      },
       OutboxPublisherWorker,
       WagerTransactionsConsumerWorker,
+      PendingReferenceResolverWorker,
     ];
 
     if (options?.uow) {
@@ -106,7 +125,9 @@ export class WorkersModule {
       exports: [
         OutboxPublisherWorker,
         WagerTransactionsConsumerWorker,
+        PendingReferenceResolverWorker,
         PublishOutboxMessagesUseCase,
+        ResolvePendingReferencesUseCase,
         WORKERS_MESSAGE_PUBLISHER,
       ],
     };

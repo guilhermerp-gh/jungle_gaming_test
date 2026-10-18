@@ -15,6 +15,7 @@ interface ErrorEnvelope {
     code: string;
     message: string;
     retryable: boolean;
+    details?: Record<string, unknown>;
   };
 }
 
@@ -98,6 +99,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         code,
         message,
         retryable,
+        ...(exception instanceof DomainError && exception.details ? { details: exception.details } : {}),
       },
     };
 

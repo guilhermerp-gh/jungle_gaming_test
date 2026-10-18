@@ -340,6 +340,7 @@ describe("HTTP API & Controllers (Fase 3 Integration)", () => {
       expect(second.status).toBe(200);
       const secondData = await parseJson(second);
       expect(secondData.idempotentReplay).toBe(true);
+      expect(secondData.message).toContain("Replay de Idempotência");
       expect(secondData.id).toBe(firstData.id);
       expect(secondData.resultBalance).toBe(firstData.resultBalance);
     });
@@ -510,6 +511,10 @@ describe("HTTP API & Controllers (Fase 3 Integration)", () => {
       expect(refund2.status).toBe(422);
       const err = await parseJson(refund2);
       expect(err.error.code).toBe("ALREADY_REVERSED");
+      expect(err.error.message).toContain("ext-bet-ref-1");
+      expect(err.error.details.referenceExternalTransactionId).toBe("ext-bet-ref-1");
+      expect(err.error.details.alreadyReversedByExternalId).toBe("ext-refund-1");
+      expect(err.error.details.amount).toBe("40.00");
     });
   });
 
@@ -642,6 +647,72 @@ describe("HTTP API & Controllers (Fase 3 Integration)", () => {
       expect(rec.calculatedBalance).toBe("65.00");
       expect(rec.difference).toBe("0.00");
       expect(rec.checkedEntries).toBe(3);
+    });
+
+    it("POST /wallets/:id/deposit > efetua depósito, credita saldo e responde com 201 Created e 200 OK no replay", async () => {
+      const playerId = randomUUID();
+      const walletRes = await fetch(`${baseUrl}/wallets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId, currency: "BRL", initialBalance: "20.00" }),
+      });
+      expect(walletRes.status).toBe(201);
+      const wallet = await parseJson(walletRes);
+
+      // 1. Depósito sem Idempotency-Key deve falhar com 400
+      const missingKeyRes = await fetch(`${baseUrl}/wallets/${wallet.id}/deposit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: "50.00" }),
+      });
+      expect(missingKeyRes.status).toBe(400);
+
+      // 2. Depósito válido de 50.00
+      const depRes = await fetch(`${baseUrl}/wallets/${wallet.id}/deposit`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "dep-integration-key-1",
+        },
+        body: JSON.stringify({ amount: "50.00", providerId: "PIX" }),
+      });
+      expect(depRes.status).toBe(201);
+      const depData = await parseJson(depRes);
+      expect(depData.idempotentReplay).toBe(false);
+      expect(depData.amount).toBe("50.00");
+      expect(depData.balanceBefore).toBe("20.00");
+      expect(depData.balanceAfter).toBe("70.00");
+      expect(depData.status).toBe("PROCESSED");
+
+      // Saldo consultado deve refletir os 70.00
+      const getWRes = await fetch(`${baseUrl}/wallets/${wallet.id}`);
+      const getW = await parseJson(getWRes);
+      expect(getW.balance).toBe("70.00");
+
+      // 3. Replay com a mesma chave deve retornar 200 OK
+      const replayRes = await fetch(`${baseUrl}/wallets/${wallet.id}/deposit`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "dep-integration-key-1",
+        },
+        body: JSON.stringify({ amount: "50.00", providerId: "PIX" }),
+      });
+      expect(replayRes.status).toBe(200);
+      const replayData = await parseJson(replayRes);
+      expect(replayData.idempotentReplay).toBe(true);
+      expect(replayData.message).toContain("Replay de Idempotência: este depósito já foi creditado anteriormente");
+
+      // 4. Conflito de idempotência (mesma chave, valor diferente) -> 409
+      const conflictRes = await fetch(`${baseUrl}/wallets/${wallet.id}/deposit`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "dep-integration-key-1",
+        },
+        body: JSON.stringify({ amount: "100.00", providerId: "PIX" }),
+      });
+      expect(conflictRes.status).toBe(409);
     });
   });
 });

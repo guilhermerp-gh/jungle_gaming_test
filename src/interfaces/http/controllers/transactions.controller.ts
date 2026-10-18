@@ -80,7 +80,7 @@ export class TransactionsController {
           enum: ["BET", "WIN", "LOSS", "REFUND", "ROLLBACK"],
           example: "BET",
         },
-        amount: { type: "string", example: "30.00" },
+        amount: { type: "string", example: "10.00" },
         currency: { type: "string", example: "BRL" },
         referenceExternalTransactionId: {
           type: "string",

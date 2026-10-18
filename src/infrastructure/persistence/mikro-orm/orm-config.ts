@@ -2,6 +2,7 @@ import { Migrator } from "@mikro-orm/migrations";
 import { defineConfig } from "@mikro-orm/postgresql";
 import { fileURLToPath } from "node:url";
 import { Migration20261017000001_InitialSchema } from "../migrations/Migration20261017000001_InitialSchema";
+import { Migration20261018000001_AddDepositKind } from "../migrations/Migration20261018000001_AddDepositKind";
 import { ALL_SCHEMAS } from "../schemas";
 
 const migrationsDir = fileURLToPath(new URL("../migrations", import.meta.url));
@@ -12,6 +13,7 @@ const migrationsDir = fileURLToPath(new URL("../migrations", import.meta.url));
  */
 export const MIGRATIONS = [
   { name: "Migration20261017000001_InitialSchema", class: Migration20261017000001_InitialSchema },
+  { name: "Migration20261018000001_AddDepositKind", class: Migration20261018000001_AddDepositKind },
 ];
 
 export function createOrmConfig(databaseUrl: string | undefined = process.env.DATABASE_URL) {
@@ -30,7 +32,7 @@ export function createOrmConfig(databaseUrl: string | undefined = process.env.DA
       pathTs: migrationsDir,
       migrationsList: MIGRATIONS,
       transactional: true,
-      allOrNothing: true,
+      allOrNothing: false,
       snapshot: false,
       emit: "ts",
     },

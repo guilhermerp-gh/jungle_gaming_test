@@ -12,6 +12,7 @@ import type {
 import type { TransactionalRepositories, UnitOfWork } from "../../src/application/ports/unit-of-work.port";
 import {
   CreateWalletUseCase,
+  DepositUseCase,
   GetLedgerUseCase,
   GetTransactionUseCase,
   GetWalletUseCase,
@@ -77,6 +78,18 @@ class InMemoryWagerRepository implements WagerTransactionRepository {
     }
     return false;
   }
+  async findProcessedReversal(referenceTransactionId: string): Promise<WagerTransaction | null> {
+    for (const tx of this.byId.values()) {
+      if (
+        tx.props.referenceTransactionId === referenceTransactionId &&
+        (tx.kind === "REFUND" || tx.kind === "ROLLBACK") &&
+        tx.status === "PROCESSED"
+      ) {
+        return tx;
+      }
+    }
+    return null;
+  }
   async insert(tx: WagerTransaction): Promise<void> {
     this.byId.set(tx.id, tx);
     this.byIdempotency.set(tx.props.idempotencyKey, tx);
@@ -85,8 +98,38 @@ class InMemoryWagerRepository implements WagerTransactionRepository {
   async update(tx: WagerTransaction): Promise<void> {
     this.byId.set(tx.id, tx);
   }
-  async claimDuePendingReferences(): Promise<WagerTransaction[]> {
-    return [];
+  async claimDuePendingReferences(now: Date = new Date(), limit = 50): Promise<WagerTransaction[]> {
+    const list: WagerTransaction[] = [];
+    for (const tx of this.byId.values()) {
+      if (tx.status === "PENDING_REFERENCE" && tx.props.nextAttemptAt && tx.props.nextAttemptAt <= now) {
+        list.push(tx);
+        if (list.length >= limit) break;
+      }
+    }
+    return list;
+  }
+  async findPendingByReference(
+    providerId: string,
+    referenceExternalTransactionId: string,
+  ): Promise<WagerTransaction[]> {
+    const list: WagerTransaction[] = [];
+    for (const tx of this.byId.values()) {
+      if (
+        tx.props.providerId === providerId &&
+        tx.props.referenceExternalTransactionId === referenceExternalTransactionId &&
+        tx.status === "PENDING_REFERENCE"
+      ) {
+        list.push(tx);
+      }
+    }
+    return list;
+  }
+  async countActivePendingReferences(): Promise<number> {
+    let count = 0;
+    for (const tx of this.byId.values()) {
+      if (tx.status === "PENDING_REFERENCE") count++;
+    }
+    return count;
   }
 }
 
@@ -269,6 +312,7 @@ describe("Application Use Cases (Unit Tests)", () => {
     const replay = await processTx.execute("key-replay-1", payload);
     expect(replay.statusCode).toBe(200);
     expect(replay.idempotentReplay).toBe(true);
+    expect(replay.message).toContain("Replay de Idempotência: esta aposta já foi processada anteriormente");
     expect(replay.transaction.id).toBe(first.transaction.id);
   });
 
@@ -462,6 +506,69 @@ describe("Application Use Cases (Unit Tests)", () => {
       expect().fail("Deveria ter lançado DomainError");
     } catch (e) {
       expect((e as DomainError).code).toBe(FailureCode.TRANSACTION_NOT_FOUND);
+    }
+  });
+
+  it("DepositUseCase > credita saldo, grava no ledger, emite evento Outbox e suporta idempotência estrita", async () => {
+    const { uow, wallets, wagers, ledger, outbox } = createTestUow();
+    const createWallet = new CreateWalletUseCase(uow);
+    const deposit = new DepositUseCase(uow);
+
+    const playerId = randomUUID();
+    const wallet = await createWallet.execute({ playerId, currency: "BRL", initialBalance: "50.00" });
+
+    // 1. Depósito com sucesso
+    const res = await deposit.execute(wallet.id, "key-dep-01", {
+      amount: "75.00",
+      providerId: "PIX_GATEWAY",
+      externalTransactionId: "pix-12345",
+    });
+
+    expect(res.idempotentReplay).toBe(false);
+    expect(res.amount).toBe("75.00");
+    expect(res.balanceBefore).toBe("50.00");
+    expect(res.balanceAfter).toBe("125.00");
+    expect(res.status).toBe("PROCESSED");
+
+    // Valida persistência
+    const updatedWallet = await wallets.findById(wallet.id);
+    expect(updatedWallet?.balance.amount).toBe("125.00");
+    expect(wagers.byId.has(res.transactionId)).toBe(true);
+    expect(ledger.entries.length).toBe(2); // OPENING + DEPOSIT
+    expect(outbox.messages.length).toBe(2);
+
+    // 2. Replay idempotente (mesma chave e mesmo payload)
+    const replay = await deposit.execute(wallet.id, "key-dep-01", {
+      amount: "75.00",
+      providerId: "PIX_GATEWAY",
+      externalTransactionId: "pix-12345",
+    });
+    expect(replay.idempotentReplay).toBe(true);
+    expect(replay.message).toContain("Replay de Idempotência: este depósito já foi creditado anteriormente");
+    expect(replay.transactionId).toBe(res.transactionId);
+    expect(updatedWallet?.balance.amount).toBe("125.00");
+
+    // 3. Conflito de Idempotência (mesma chave, valor diferente)
+    try {
+      await deposit.execute(wallet.id, "key-dep-01", {
+        amount: "100.00",
+        providerId: "PIX_GATEWAY",
+        externalTransactionId: "pix-12345",
+      });
+      expect().fail("Deveria lançar IDEMPOTENCY_CONFLICT");
+    } catch (err) {
+      expect((err as DomainError).code).toBe(FailureCode.IDEMPOTENCY_CONFLICT);
+    }
+
+    // 4. Carteira inexistente
+    try {
+      await deposit.execute(randomUUID(), "key-dep-other", {
+        amount: "50.00",
+        providerId: "CASHIER",
+      });
+      expect().fail("Deveria lançar WALLET_NOT_FOUND");
+    } catch (err) {
+      expect((err as DomainError).code).toBe(FailureCode.WALLET_NOT_FOUND);
     }
   });
 });

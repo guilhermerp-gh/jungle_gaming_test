@@ -36,6 +36,19 @@ export class MikroOrmWagerTransactionRepository implements WagerTransactionRepos
     return count > 0;
   }
 
+  async findProcessedReversal(referenceTransactionId: string): Promise<WagerTransaction | null> {
+    const row = await this.em.findOne(
+      WagerTransactionSchema,
+      {
+        referenceTransactionId,
+        kind: { $in: ["REFUND", "ROLLBACK"] },
+        status: "PROCESSED",
+      },
+      { disableIdentityMap: true },
+    );
+    return row ? WagerTransactionMapper.toDomain(row) : null;
+  }
+
   async insert(tx: WagerTransaction): Promise<void> {
     await this.em.insert(WagerTransactionSchema, WagerTransactionMapper.toRecord(tx));
   }
@@ -62,4 +75,28 @@ export class MikroOrmWagerTransactionRepository implements WagerTransactionRepos
     );
     return rows.map((r) => WagerTransactionMapper.toDomain(r));
   }
+
+  async findPendingByReference(
+    providerId: string,
+    referenceExternalTransactionId: string,
+  ): Promise<WagerTransaction[]> {
+    const rows = await this.em.find(
+      WagerTransactionSchema,
+      {
+        providerId,
+        referenceExternalTransactionId,
+        status: "PENDING_REFERENCE",
+      },
+      {
+        orderBy: { createdAt: "asc" },
+        disableIdentityMap: true,
+      },
+    );
+    return rows.map((r) => WagerTransactionMapper.toDomain(r));
+  }
+
+  async countActivePendingReferences(): Promise<number> {
+    return this.em.count(WagerTransactionSchema, { status: "PENDING_REFERENCE" });
+  }
 }
+

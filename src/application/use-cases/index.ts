@@ -5,3 +5,6 @@ export * from "./get-ledger.use-case";
 export * from "./get-transaction.use-case";
 export * from "./reconcile-wallet.use-case";
 export * from "./publish-outbox-messages.use-case";
+export * from "./resolve-pending-references.use-case";
+export * from "./deposit.use-case";
+

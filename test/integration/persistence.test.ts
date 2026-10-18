@@ -240,6 +240,31 @@ describe("Persistence & Database (Fase 2)", () => {
   });
 
   describe("Wager Transactions & Terminal States", () => {
+    it("persiste transação DEPOSIT e reflete no saldo e no ledger", async () => {
+      const { wallet } = await seedWallet(db.uow, "50.00", "BRL");
+      const depositTx = newWager(wallet, "DEPOSIT", "100.00", { externalId: "dep-pg-1" });
+
+      await db.uow.transactional(async (r) => {
+        const w = await r.wallets.findByIdForUpdate(wallet.id);
+        const entry = w!.credit({
+          ledgerId: uuid(),
+          transactionId: depositTx.id,
+          amount: depositTx.props.money,
+          now: new Date(),
+        });
+        depositTx.markProcessed(w!.balance, new Date());
+        await r.wagers.insert(depositTx);
+        await r.ledger.append(entry);
+        await r.wallets.saveBalance(w!);
+      });
+
+      const loadedWallet = await db.uow.transactional((r) => r.wallets.findById(wallet.id));
+      expect(loadedWallet?.balance.amount).toBe("150.00");
+      const loadedTx = await db.uow.transactional((r) => r.wagers.findById(depositTx.id));
+      expect(loadedTx?.kind).toBe("DEPOSIT");
+      expect(loadedTx?.status).toBe("PROCESSED");
+    });
+
     it("trigger impede alteração a partir de estado terminal (PROCESSED)", async () => {
       const { wallet } = await seedWallet(db.uow, "100.00", "BRL");
       const bet = newWager(wallet, "BET", "20.00");

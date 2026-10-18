@@ -3,6 +3,7 @@ import { MikroORM } from "@mikro-orm/postgresql";
 import type { UnitOfWork } from "../../application/ports/unit-of-work.port";
 import {
   CreateWalletUseCase,
+  DepositUseCase,
   GetLedgerUseCase,
   GetTransactionUseCase,
   GetWalletUseCase,
@@ -29,6 +30,11 @@ function buildProviders(options?: HttpModuleOptions): Provider[] {
     {
       provide: CreateWalletUseCase,
       useFactory: (uow: UnitOfWork) => new CreateWalletUseCase(uow),
+      inject: [UNIT_OF_WORK],
+    },
+    {
+      provide: DepositUseCase,
+      useFactory: (uow: UnitOfWork) => new DepositUseCase(uow),
       inject: [UNIT_OF_WORK],
     },
     {

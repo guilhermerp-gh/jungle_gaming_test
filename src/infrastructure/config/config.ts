@@ -18,3 +18,5 @@ export type AppConfig = z.infer<typeof schema>;
 export function loadConfig(env: Record<string, string | undefined> = process.env): AppConfig {
   return schema.parse(env);
 }
+
+export { APP_VERSION } from "./version";

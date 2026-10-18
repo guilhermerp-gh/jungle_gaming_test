@@ -21,3 +21,29 @@ export interface WalletResponseDto {
   createdAt: string;
   updatedAt: string;
 }
+
+export const DepositSchema = z.object({
+  amount: z
+    .string()
+    .regex(/^\d+\.\d{2}$/, { message: "amount must be a decimal string with scale 2" })
+    .refine((val) => val !== "0.00", { message: "amount must be greater than zero" }),
+  providerId: z.string().min(1).default("CASHIER"),
+  externalTransactionId: z.string().min(1).optional(),
+});
+
+export type DepositDto = z.infer<typeof DepositSchema>;
+
+export interface DepositResponseDto {
+  idempotentReplay?: boolean;
+  transactionId: string;
+  walletId: string;
+  playerId: string;
+  currency: string;
+  amount: string;
+  balanceBefore: string;
+  balanceAfter: string;
+  status: string;
+  createdAt: string;
+  message?: string;
+}
+

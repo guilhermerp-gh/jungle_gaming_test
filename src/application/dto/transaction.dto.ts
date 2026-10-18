@@ -40,4 +40,5 @@ export interface TransactionResponseDto {
   createdAt: string;
   processedAt: string | null;
   idempotentReplay?: boolean;
+  message?: string;
 }

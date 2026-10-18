@@ -7,6 +7,45 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [0.7.0] - 18-10-2026
+
+### Resumo Executivo
+
+A versão 0.7.0 traz uma experiência ainda mais fluida e segura para o saldo dos jogadores, introduzindo a funcionalidade de depósitos diretos com confirmação imediata e garantindo que prêmios ou estornos sejam creditados corretamente na carteira mesmo quando chegarem antes da aposta correspondente por oscilações de conexão. Além disso, o sistema ganhou avisos claros e transparentes que informam quando uma aposta ou depósito já foi computado, evitando qualquer dúvida de duplicidade.
+
+No visual, o console de testes e documentação foi aprimorado para carregar de forma mais limpa e organizada, com seções recolhidas por padrão e botões rápidos para expandir ou recolher tudo de uma só vez, além de correções visuais nas caixas de ajuda que agora aparecem completas e sem cortes.
+
+### ✨ Adicionado
+- Mecanismo completo do Pending Reference Resolver (`ResolvePendingReferencesUseCase`) para resolução assíncrona e eventual de transações fora de ordem (`WIN`, `REFUND`, `ROLLBACK` recebidos antes da respectiva `BET`).
+- Background worker agendado `PendingReferenceResolverWorker` com varredura a cada 1s, travas `FOR UPDATE SKIP LOCKED`, *backoff* exponencial com *jitter* e expiração por 10 tentativas / TTL de 15 minutos (`APP_ROLE=all|resolver`).
+- Otimização Fast-Path em `ProcessWagerTransactionUseCase` para resolução instantânea de pendências assim que a aposta de referência for processada.
+- Métricas Prometheus dedicadas (`PendingReferenceMetrics`): `pending_references_active_gauge`, `pending_references_resolved_total{outcome}`, `pending_reference_resolution_duration_seconds` e `pending_reference_errors_total`.
+- Endpoint e caso de uso de depósitos financeiros `POST /wallets/:id/deposit` com garantia estrita de idempotência persistente, lock pessimista e lançamento imutável `CREDIT` no ledger contábil.
+- Retorno de auditoria enriquecido (`details`) em respostas `422 Unprocessable Entity` para o erro `ALREADY_REVERSED` (identificador da reversão original, data e valor).
+- Novos controles globais na barra de filtros do console `/docs`: botões `📂 Expandir Todos` e `📁 Recolher Todos`.
+- Banners dinâmicos de alerta e mensagens explicativas amigáveis em replays idempotentes (`message`).
+- 21 novos testes automatizados (testes unitários de use cases, workers, integração Postgres real e alta concorrência com tempestades de depósito), expandindo a suíte para 118 testes e 769 asserções.
+
+### 🔄 Modificado
+- Inicialização da página `/docs` 100% recolhida por padrão, evitando poluição visual ao atualizar a tela.
+- Padronização dos valores padrão de teste para `10.00` em toda a documentação interativa e Swagger.
+- [README.md](./README.md) e workflow `run-tests.md` atualizados com as funcionalidades da Fase 7 e depósitos.
+- Versão do projeto atualizada para `0.7.0` em `package.json`.
+
+### 🐛 Corrigido
+- Correção do contexto de empilhamento CSS (`z-index: 100`) na barra de Idempotency-Key Global, eliminando o corte do tooltip explicativo sobre o Guia de Testes.
+- Garantia de resposta instantânea `200 OK` com snapshot nos replays de depósito idempotente com mesma chave e payload.
+
+### 🧪 Sugestões de Testes
+- Executar a suíte completa de validação: `bun run test:all` (Lint Money + Typecheck + 118 testes automatizados).
+- Executar os testes de integração do Pending Reference Resolver: `bun test test/integration/pending-reference-resolver.integration.test.ts`.
+- Executar os testes de estresse e concorrência: `bun test test/concurrency/concurrency.test.ts`.
+- Acessar o Portal Principal em `http://localhost:3000/` e testar os presets do console `/docs` (incluindo depósito e resolução fora de ordem).
+
+📄 [Notas detalhadas da versão](./docs/releases/00.07/00.07.00.md)
+
+---
+
 ## [0.6.0] - 17-10-2026
 
 ### Resumo Executivo

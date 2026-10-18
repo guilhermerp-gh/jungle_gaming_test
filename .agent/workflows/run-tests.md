@@ -36,16 +36,16 @@ Este workflow garante a integridade de todas as camadas do sistema seguindo a pi
      ```
    - **Comportamento em Falha:** Aponta o arquivo, linha e erro de tipagem e interrompe.
 
-4. **Etapa 3: Testes Unitários de Domínio, Casos de Uso, Mensageria e Consumers (`test:unit`)**
-   - **Objetivo:** Testar regras de negócio, `Money`, `Wallet`, `WageringPolicy`, `payloadHash`, adapter de mensageria SQS FIFO, worker consumidor de transações (`WagerTransactionsConsumerWorker`), validação com Zod, classificação de falhas (negócio vs poison pills), retentativas com backoff exponencial e todos os casos de uso de aplicação na memória.
+4. **Etapa 3: Testes Unitários de Domínio, Casos de Uso, Mensageria, Consumers e Resolvers (`test:unit`)**
+   - **Objetivo:** Testar regras de negócio, `Money`, `Wallet`, `WageringPolicy` (incluindo `DEPOSIT`, `BET`, `WIN`, `LOSS`, `REFUND`, `ROLLBACK`), `payloadHash`, adapter de mensageria SQS FIFO, worker consumidor de transações (`WagerTransactionsConsumerWorker`), worker de resolução de pendências (`PendingReferenceResolverWorker`), caso de uso `ResolvePendingReferencesUseCase` (expiração após 10 tentativas ou TTL de 15 min, backoff exponencial com jitter, transições de estado), validação com Zod, classificação de falhas e todos os casos de uso de aplicação na memória incluindo `DepositUseCase` (65 testes unitários).
    - **Comando:**
      ```bash
      bun test test/unit
      ```
    - **Comportamento em Falha:** Reporta a regra de negócio/aplicação violada e interrompe.
 
-5. **Etapa 4: Testes de Integração de Persistência, HTTP, Outbox e SQS Consumer Worker (`test:integration`)**
-   - **Objetivo:** Testar transações no PostgreSQL real (locks pessimistas `SELECT ... FOR UPDATE`, triggers de imutabilidade, restrições e índices parciais), endpoints HTTP E2E no NestJS, o **Transactional Outbox Publisher** contra o AWS SQS FIFO real no LocalStack (`wallet-events.fifo`) e o **SQS Consumer Worker com Inbox Pattern** (`wager-transactions.fifo`), cobrindo processamento ponta a ponta, rejeição contábil, deduplicação em reentregas pós-commit, roteamento de poison pills para DLQ (`wager-transactions-dlq.fifo`) e graceful shutdown.
+5. **Etapa 4: Testes de Integração de Persistência, HTTP, Outbox, SQS Consumer e Pending Reference Resolver (`test:integration`)**
+   - **Objetivo:** Testar transações no PostgreSQL real (locks pessimistas `SELECT ... FOR UPDATE`, triggers de imutabilidade, restrições, índices parciais e persistência de `DEPOSIT`), endpoints HTTP E2E no NestJS (incluindo `POST /wallets/:id/deposit` com replay 200 OK e detecção de conflito 409), o **Transactional Outbox Publisher** contra o AWS SQS FIFO real no LocalStack (`wallet-events.fifo`), o **SQS Consumer Worker com Inbox Pattern** (`wager-transactions.fifo`) e o **Pending Reference Resolver** (`test/integration/pending-reference-resolver.integration.test.ts`), cobrindo processamento ponta a ponta, resolução fora de ordem (WIN e REFUND antes de BET), expiração por timeout, referência rejeitada, prevenção de dupla reversão (`ALREADY_REVERSED`) e múltiplos resolvers paralelos com `FOR UPDATE SKIP LOCKED` (44 testes de integração).
    - **Comando:**
      ```bash
      bun test test/integration
@@ -53,7 +53,7 @@ Este workflow garante a integridade de todas as camadas do sistema seguindo a pi
    - **Comportamento em Falha:** Mostra o erro do banco de dados, da fila SQS, da API ou asserção não atendida e interrompe.
 
 6. **Etapa 5: Testes de Alta Concorrência (`test:concurrency`)**
-   - **Objetivo:** Stress tests e cenários de concorrência massiva paralela (cenário 100/80/80, tempestades de idempotência, hot wallet com 100 threads, operações mistas e isolamento entre carteiras).
+   - **Objetivo:** Stress tests e cenários de concorrência massiva paralela (cenário 100/80/80, tempestades de idempotência, hot wallet com 100 threads, operações mistas, isolamento entre carteiras e concorrência/tempestade de replay para depósitos via `POST /wallets/:id/deposit`) (9 testes de alta concorrência).
    - **Comando:**
      ```bash
      bun test test/concurrency

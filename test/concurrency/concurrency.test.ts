@@ -54,6 +54,11 @@
  * 7. Corrida com Chaves Diferentes para o Mesmo (providerId, externalTransactionId):
  *    - Duas requisições simultâneas para o mesmo identificador externo do provedor.
  *    - Exatamente 1 é processada (201) e a concorrente recebe 409 IDEMPOTENCY_CONFLICT.
+ *
+ * 8. Concorrência e Idempotência de Depósitos Simultâneos:
+ *    - 10 depósitos paralelos na mesma carteira convergem exatamente no saldo sem deadlocks.
+ *    - Tempestade de replay com 20 requisições simultâneas com a mesma Idempotency-Key
+ *      resulta em exatamente 1 crédito (201) e 19 replays (200 OK), sem dupla contagem.
  * ============================================================================
  */
 
@@ -602,6 +607,77 @@ describe("Alta Concorrência & Resiliência de Idempotência (Fase 4)", () => {
       const reconBody = await parseJson(reconRes);
       expect(reconBody.consistent).toBe(true);
       expect(reconBody.storedBalance).toBe("85.00");
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // CENÁRIO 8: Concorrência e Idempotência de Depósitos Simultâneos
+  // --------------------------------------------------------------------------
+  describe("Concorrência de Depósitos: Paralelismo e Tempestade de Replay", () => {
+    it("10 depósitos simultâneos de R$ 10,00 na mesma carteira convergem exatamente no saldo (+ R$ 100,00)", async () => {
+      const { walletId } = await createWallet("50.00");
+
+      const deposits = Array.from({ length: 10 }, (_, i) =>
+        fetch(`${baseUrl}/wallets/${walletId}/deposit`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": `dep-concurrent-${i}-${randomUUID()}`,
+          },
+          body: JSON.stringify({ amount: "10.00", providerId: "PIX" }),
+        }),
+      );
+
+      const responses = await Promise.all(deposits);
+      for (const res of responses) {
+        expect(res.status).toBe(201);
+      }
+
+      // Saldo final deve ser exatamente 50.00 + 10 * 10.00 = 150.00
+      const walletRes = await fetch(`${baseUrl}/wallets/${walletId}`);
+      const walletBody = await parseJson(walletRes);
+      expect(walletBody.balance).toBe("150.00");
+
+      // Auditoria de Reconciliação Contábil
+      const reconRes = await fetch(`${baseUrl}/wallets/${walletId}/reconciliation`, { method: "POST" });
+      const reconBody = await parseJson(reconRes);
+      expect(reconBody.consistent).toBe(true);
+      expect(reconBody.storedBalance).toBe("150.00");
+      expect(reconBody.difference).toBe("0.00");
+    });
+
+    it("tempestade de 20 requisições simultâneas com a MESMA Idempotency-Key resulta em 1 crédito (201) e 19 replays (200)", async () => {
+      const { walletId } = await createWallet("50.00");
+      const sharedKey = `dep-storm-${randomUUID()}`;
+
+      const requests = Array.from({ length: 20 }, () =>
+        fetch(`${baseUrl}/wallets/${walletId}/deposit`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": sharedKey,
+          },
+          body: JSON.stringify({ amount: "30.00", providerId: "PIX" }),
+        }),
+      );
+
+      const responses = await Promise.all(requests);
+      const statuses = responses.map((r) => r.status);
+      const createdCount = statuses.filter((s) => s === 201).length;
+      const replayCount = statuses.filter((s) => s === 200).length;
+
+      expect(createdCount).toBe(1);
+      expect(replayCount).toBe(19);
+
+      // Saldo creditado exatamente uma vez: 50.00 + 30.00 = 80.00
+      const walletRes = await fetch(`${baseUrl}/wallets/${walletId}`);
+      const walletBody = await parseJson(walletRes);
+      expect(walletBody.balance).toBe("80.00");
+
+      const reconRes = await fetch(`${baseUrl}/wallets/${walletId}/reconciliation`, { method: "POST" });
+      const reconBody = await parseJson(reconRes);
+      expect(reconBody.consistent).toBe(true);
+      expect(reconBody.storedBalance).toBe("80.00");
     });
   });
 });

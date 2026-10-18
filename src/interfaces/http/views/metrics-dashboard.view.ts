@@ -1,3 +1,5 @@
+import { APP_VERSION } from "../../../infrastructure/config/config";
+
 export function renderMetricsDashboardView(): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -206,6 +208,7 @@ export function renderMetricsDashboardView(): string {
     .card-published::before { background: linear-gradient(90deg, #8b5cf6, #3b82f6); }
     .card-errors::before { background: linear-gradient(90deg, #10b981, #f59e0b); }
     .card-pipeline::before { background: linear-gradient(90deg, #06b6d4, #8b5cf6); }
+    .card-resolver::before { background: linear-gradient(90deg, #f59e0b, #10b981); }
 
     .card-header {
       display: flex;
@@ -474,6 +477,32 @@ export function renderMetricsDashboardView(): string {
           <span>●</span> <span>Zero mensagens corrompidas</span>
         </div>
       </div>
+
+      <!-- Pendências Ativas (Fase 7) -->
+      <div class="card card-resolver">
+        <div class="card-header">
+          <span class="card-title">Pendências Ativas</span>
+          <span class="card-icon">⏳</span>
+        </div>
+        <div id="metric-pending-active" class="card-value">0</div>
+        <p class="card-desc">Transações em <code>PENDING_REFERENCE</code> aguardando chegada da referência.</p>
+        <div id="pending-active-status" class="card-meta" style="color: #34d399;">
+          <span>●</span> <span>Nenhuma pendência ativa</span>
+        </div>
+      </div>
+
+      <!-- Pendências Resolvidas (Fase 7) -->
+      <div class="card card-resolver">
+        <div class="card-header">
+          <span class="card-title">Pendências Resolvidas</span>
+          <span class="card-icon">🎯</span>
+        </div>
+        <div id="metric-pending-resolved" class="card-value">0</div>
+        <p class="card-desc">Apostas fora de ordem reconciliadas pelo worker ou fast-path.</p>
+        <div class="card-meta" style="color: #34d399;">
+          <span>✓</span> <span>Consistência Eventual</span>
+        </div>
+      </div>
     </section>
 
     <!-- Detalhamento por Tipo de Evento e Consumo -->
@@ -509,7 +538,7 @@ export function renderMetricsDashboardView(): string {
     </section>
 
     <footer>
-      Jungle Gaming Technical Test • Distributed Wagering Processor • Fase 6: SQS Consumer & Inbox Pattern (v0.6.0)
+      Jungle Gaming Technical Test • Distributed Wagering Processor • v${APP_VERSION}
     </footer>
   </div>
 
@@ -618,7 +647,47 @@ export function renderMetricsDashboardView(): string {
         dlqStatus.style.color = '#f43f5e';
       }
 
-      // 5. Detalhamento na Tabela
+      // 5. Pending Reference Resolver
+      const pendingActiveMetric = metrics.find(m => m.name === 'pending_references_active_gauge');
+      const pendingActiveVal = pendingActiveMetric?.values?.[0]?.value ?? 0;
+      const pendingActiveElem = document.getElementById('metric-pending-active');
+      const pendingActiveStatus = document.getElementById('pending-active-status');
+      if (pendingActiveElem) {
+        pendingActiveElem.textContent = pendingActiveVal;
+        if (pendingActiveVal > 0) {
+          pendingActiveElem.style.color = '#f59e0b';
+          if (pendingActiveStatus) {
+            pendingActiveStatus.innerHTML = '<span>●</span> <span>' + pendingActiveVal + ' aguardando referência</span>';
+            pendingActiveStatus.style.color = '#f59e0b';
+          }
+        } else {
+          pendingActiveElem.style.color = '#34d399';
+          if (pendingActiveStatus) {
+            pendingActiveStatus.innerHTML = '<span>●</span> <span>Nenhuma pendência ativa</span>';
+            pendingActiveStatus.style.color = '#34d399';
+          }
+        }
+      }
+
+      const pendingResolvedMetric = metrics.find(m => m.name === 'pending_references_resolved_total');
+      let totalResolved = 0;
+      if (pendingResolvedMetric && pendingResolvedMetric.values) {
+        for (const item of pendingResolvedMetric.values) {
+          totalResolved += item.value;
+          eventRows.push({
+            type: 'Pending Reference (' + (item.labels?.outcome || 'resolved') + ')',
+            queue: 'wager_transactions (resolver)',
+            count: item.value,
+            category: 'RESOLVED',
+          });
+        }
+      }
+      const pendingResolvedElem = document.getElementById('metric-pending-resolved');
+      if (pendingResolvedElem) {
+        pendingResolvedElem.textContent = totalResolved;
+      }
+
+      // 6. Detalhamento na Tabela
       const tbody = document.getElementById('events-tbody');
       if (eventRows.length === 0) {
         tbody.innerHTML = \`

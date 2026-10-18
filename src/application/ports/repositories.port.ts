@@ -27,10 +27,16 @@ export interface WagerTransactionRepository {
   findByExternalId(providerId: string, externalTransactionId: string): Promise<WagerTransaction | null>;
   /** Existe reversão (REFUND/ROLLBACK) PROCESSED apontando para a transação? */
   hasProcessedReversal(referenceTransactionId: string): Promise<boolean>;
+  /** Retorna a transação de reversão (REFUND/ROLLBACK) PROCESSED apontando para a transação referenciada, se houver */
+  findProcessedReversal(referenceTransactionId: string): Promise<WagerTransaction | null>;
   insert(tx: WagerTransaction): Promise<void>;
   update(tx: WagerTransaction): Promise<void>;
   /** Pendentes de referência vencidas, com `FOR UPDATE SKIP LOCKED` (multi-instância). */
   claimDuePendingReferences(now: Date, limit: number): Promise<WagerTransaction[]>;
+  /** Busca transações em PENDING_REFERENCE que aguardam uma transação externa de referência específica */
+  findPendingByReference(providerId: string, referenceExternalTransactionId: string): Promise<WagerTransaction[]>;
+  /** Quantidade atual de transações com status PENDING_REFERENCE (para métricas e observabilidade) */
+  countActivePendingReferences(): Promise<number>;
 }
 
 export interface LedgerPageItem {

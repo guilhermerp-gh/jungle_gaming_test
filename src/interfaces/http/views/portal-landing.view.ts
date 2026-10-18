@@ -1,3 +1,5 @@
+import { APP_VERSION } from "../../../infrastructure/config/config";
+
 export function renderPortalLandingView(): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -371,11 +373,11 @@ export function renderPortalLandingView(): string {
     <header class="hero">
       <div class="status-badge">
         <span class="status-dot"></span>
-        <span>Sistema Operacional &bull; v0.6.0</span>
+        <span>Sistema Operacional &bull; v${APP_VERSION}</span>
       </div>
       <h1 class="title">Distributed Wagering Processor</h1>
       <p class="subtitle">
-        Motor financeiro distribuído de alta concorrência com <strong>Ledger Imutável</strong>, <strong>Idempotência Persistente</strong>, <strong>Transactional Outbox</strong> e <strong>SQS Consumer</strong>. Escolha um dos portais abaixo para iniciar:
+        Motor financeiro distribuído de alta concorrência com <strong>Ledger Imutável</strong>, <strong>Idempotência Persistente</strong>, <strong>Transactional Outbox</strong>, <strong>SQS Consumer</strong> e <strong>Pending Reference Resolver</strong> (Resolução Fora de Ordem). Escolha um dos portais abaixo para iniciar:
       </p>
     </header>
 
@@ -409,7 +411,7 @@ export function renderPortalLandingView(): string {
             </li>
             <li>
               <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
-              <span><strong>Predefinições Instantâneas:</strong> Botões de um clique para simular BET (R$ 30,00), WIN (R$ 50,00) e REFUND.</span>
+              <span><strong>Predefinições Instantâneas:</strong> Botões de um clique para simular BET (R$ 10,00), WIN (R$ 50,00) e REFUND (R$ 10,00).</span>
             </li>
           </ul>
         </div>

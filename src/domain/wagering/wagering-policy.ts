@@ -27,6 +27,9 @@ export const WageringPolicy = {
     if (wallet.currency !== t.money.currency) return reject(FC.CURRENCY_MISMATCH);
 
     switch (t.kind) {
+      case "DEPOSIT":
+      case "OPENING":
+        return { type: "APPLY", direction: "CREDIT", insufficientCode: FC.INSUFFICIENT_FUNDS };
       case "BET":
         if (wallet.balance.isLessThan(t.money)) return reject(FC.INSUFFICIENT_FUNDS);
         return { type: "APPLY", direction: "DEBIT", insufficientCode: FC.INSUFFICIENT_FUNDS };

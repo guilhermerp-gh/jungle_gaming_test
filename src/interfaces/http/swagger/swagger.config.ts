@@ -1,5 +1,6 @@
 import type { INestApplication } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { APP_VERSION } from "../../../infrastructure/config/config";
 
 export const swaggerDescription = `
 ### 🎰 API Financeira de Processamento de Apostas
@@ -29,8 +30,8 @@ Serviço distribuído com **Ledger Imutável**, **Idempotência Persistente**, *
       <li><strong>3️⃣ Realizar uma Aposta (<code>POST /transactions</code>):</strong>
         <ul>
           <li>No cabeçalho <code>Idempotency-Key</code>, informe uma chave única (ex: <code>req-001</code>).</li>
-          <li>No corpo, use <code>kind: "BET"</code>, <code>amount: "30.00"</code> e cole o seu <code>walletId</code>.</li>
-          <li><strong>Retorno esperado:</strong> <code>201 Created</code> com saldo restante de <code>"70.00"</code>. <em>(O Transactional Outbox gera automaticamente os eventos de integração e os despacha para a fila AWS SQS FIFO <code>wallet-events.fifo</code>)</em>.</li>
+          <li>No corpo, use <code>kind: "BET"</code>, <code>amount: "10.00"</code> e cole o seu <code>walletId</code>.</li>
+          <li><strong>Retorno esperado:</strong> <code>201 Created</code> com saldo restante de <code>"90.00"</code> (considerando saldo inicial de 100.00). <em>(O Transactional Outbox gera automaticamente os eventos de integração e os despacha para a fila AWS SQS FIFO <code>wallet-events.fifo</code>)</em>.</li>
         </ul>
       </li>
       <li><strong>4️⃣ Testar a Idempotência (<code>POST /transactions</code>):</strong>
@@ -170,7 +171,7 @@ export function setupSwagger(app: INestApplication): void {
   const swaggerConfig = new DocumentBuilder()
     .setTitle("Distributed Wagering Processor")
     .setDescription(swaggerDescription)
-    .setVersion("0.6.0")
+    .setVersion(APP_VERSION)
     .addApiKey(
       {
         type: "apiKey",

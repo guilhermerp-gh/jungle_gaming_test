@@ -15,6 +15,7 @@ import { WagerTransaction } from "../../domain/wagering/wager-transaction";
 import { WageringPolicy } from "../../domain/wagering/wagering-policy";
 import type { ProcessTransactionDto, TransactionResponseDto } from "../dto/transaction.dto";
 import type { UnitOfWork } from "../ports/unit-of-work.port";
+import { ResolvePendingReferencesUseCase } from "./resolve-pending-references.use-case";
 
 export interface MessageProcessingContext {
   consumerName: string;
@@ -24,11 +25,23 @@ export interface MessageProcessingContext {
 export interface ProcessTransactionResult {
   statusCode: 200 | 201 | 202;
   idempotentReplay: boolean;
+  message?: string;
   transaction: TransactionResponseDto;
 }
 
 function toDto(tx: WagerTransaction, idempotentReplay = false): TransactionResponseDto {
   const p = tx.props;
+  let message: string | undefined;
+  if (idempotentReplay) {
+    if (p.kind === "REFUND") {
+      message = "Replay de Idempotência: este estorno já foi realizado anteriormente. O saldo não foi creditado novamente.";
+    } else if (p.kind === "BET") {
+      message = "Replay de Idempotência: esta aposta já foi processada anteriormente. O saldo não foi debitado novamente.";
+    } else {
+      message = "Replay de Idempotência: transação já processada anteriormente. O saldo permaneceu inalterado.";
+    }
+  }
+
   return {
     id: p.id,
     providerId: p.providerId,
@@ -48,6 +61,7 @@ function toDto(tx: WagerTransaction, idempotentReplay = false): TransactionRespo
     createdAt: p.createdAt.toISOString(),
     processedAt: p.processedAt ? p.processedAt.toISOString() : null,
     idempotentReplay,
+    ...(message ? { message } : {}),
   };
 }
 
@@ -180,19 +194,19 @@ export class ProcessWagerTransactionUseCase {
 
         // 5. Contexto e Avaliação de Política
         let ref: WagerTransaction | null = null;
-        let referenceAlreadyReversed = false;
+        let existingReversal: WagerTransaction | null = null;
 
         if (dto.referenceExternalTransactionId) {
           ref = await repos.wagers.findByExternalId(dto.providerId, dto.referenceExternalTransactionId);
           if (ref) {
-            referenceAlreadyReversed = await repos.wagers.hasProcessedReversal(ref.id);
+            existingReversal = await repos.wagers.findProcessedReversal(ref.id);
           }
         }
 
         const decision = WageringPolicy.evaluate(tx, {
           wallet,
           reference: ref,
-          referenceAlreadyReversed,
+          referenceAlreadyReversed: existingReversal !== null,
         });
 
         if (decision.type === "APPLY") {
@@ -298,10 +312,23 @@ export class ProcessWagerTransactionUseCase {
         await repos.outbox.add(OutboxMessage.fromEvent(rejectedEvent));
         await markInboxIfPresent(now);
 
+        let details: Record<string, unknown> | undefined;
+        if (decision.code === FailureCode.ALREADY_REVERSED && existingReversal) {
+          details = {
+            referenceExternalTransactionId: dto.referenceExternalTransactionId,
+            alreadyReversedByTransactionId: existingReversal.id,
+            alreadyReversedByExternalId: existingReversal.props.externalTransactionId,
+            reversedAt: existingReversal.props.processedAt?.toISOString() ?? null,
+            amount: existingReversal.props.money.amount,
+            currency: existingReversal.props.money.currency,
+          };
+        }
+
         return {
           type: "REJECTED" as const,
           code: decision.code,
           tx,
+          details,
         };
       });
     } catch (err: unknown) {
@@ -360,14 +387,32 @@ export class ProcessWagerTransactionUseCase {
     }
 
     if (executionResult.type === "REPLAY") {
+      const txDto = toDto(executionResult.tx, true);
       return {
         statusCode: 200,
         idempotentReplay: true,
-        transaction: toDto(executionResult.tx, true),
+        message: txDto.message,
+        transaction: txDto,
       };
     }
 
     if (executionResult.type === "PROCESSED") {
+      // FAST-PATH: Disparar resolução de transações que estavam em PENDING_REFERENCE aguardando esta referência
+      try {
+        const pendingForThis = await this.uow.transactional(async (repos) => {
+          return repos.wagers.findPendingByReference(dto.providerId, dto.externalTransactionId);
+        });
+
+        if (pendingForThis.length > 0) {
+          const resolverUseCase = new ResolvePendingReferencesUseCase(this.uow);
+          for (const pending of pendingForThis) {
+            await resolverUseCase.resolveOne(pending.id, new Date());
+          }
+        }
+      } catch {
+        // Fast-path é uma otimização; qualquer exceção será recuperada pelo worker periódico
+      }
+
       return {
         statusCode: 201,
         idempotentReplay: false,
@@ -384,9 +429,15 @@ export class ProcessWagerTransactionUseCase {
     }
 
     // Caso REJECTED: a transação e o outbox já foram persistidos e commitados!
+    const message =
+      executionResult.code === FailureCode.ALREADY_REVERSED
+        ? `A transação de referência já foi estornada anteriormente (${dto.referenceExternalTransactionId}).`
+        : `Transaction rejected by policy: ${executionResult.code}`;
+
     throw new DomainError(
       executionResult.code,
-      `Transaction rejected by policy: ${executionResult.code}`,
+      message,
+      executionResult.details,
     );
   }
 }

@@ -2,25 +2,32 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
   Post,
   Query,
+  Res,
   UseGuards,
 } from "@nestjs/common";
 import {
   ApiBody,
+  ApiHeader,
   ApiOperation,
   ApiParam,
   ApiQuery,
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
+import type { Response } from "express";
 import {
   CreateWalletSchema,
+  DepositSchema,
   GetLedgerQuerySchema,
   type CreateWalletDto,
+  type DepositDto,
+  type DepositResponseDto,
   type GetLedgerQueryDto,
   type LedgerPageDto,
   type ReconciliationResponseDto,
@@ -28,6 +35,7 @@ import {
 } from "../../../application/dto";
 import {
   CreateWalletUseCase,
+  DepositUseCase,
   GetLedgerUseCase,
   GetWalletUseCase,
   ReconcileWalletUseCase,
@@ -45,6 +53,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 export class WalletsController {
   constructor(
     private readonly createWalletUseCase: CreateWalletUseCase,
+    private readonly depositUseCase: DepositUseCase,
     private readonly getWalletUseCase: GetWalletUseCase,
     private readonly getLedgerUseCase: GetLedgerUseCase,
     private readonly reconcileWalletUseCase: ReconcileWalletUseCase,
@@ -54,16 +63,16 @@ export class WalletsController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: "Criar carteira",
-    description: "Cria uma carteira para um jogador com moeda especificada e opcionalmente credita saldo inicial gerando lançamento contábil OPENING.",
+    description: "Cria uma carteira para um jogador na moeda especificada (relação 1 jogador = 1 carteira por moeda: BRL, USD, EUR, etc.). Caso o playerId já possua carteira na mesma moeda, retorna 409 Conflict. Para criar carteiras para múltiplos jogadores, informe um UUID diferente em playerId.",
   })
   @ApiBody({
     schema: {
       type: "object",
       required: ["playerId", "currency"],
       properties: {
-        playerId: { type: "string", format: "uuid", example: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11" },
-        currency: { type: "string", example: "BRL" },
-        initialBalance: { type: "string", example: "100.00" },
+        playerId: { type: "string", format: "uuid", example: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11", description: "UUID do jogador (cada jogador pode ter 1 carteira por moeda)" },
+        currency: { type: "string", example: "BRL", description: "Código ISO-4217 de 3 letras maiúsculas (ex: BRL, USD, EUR)" },
+        initialBalance: { type: "string", example: "100.00", description: "Saldo de abertura opcional (formato decimal com 2 casas)" },
       },
     },
   })
@@ -88,6 +97,54 @@ export class WalletsController {
   async getById(@Param("id") id: string): Promise<WalletResponseDto> {
     this.assertValidUuid(id, "walletId");
     return this.getWalletUseCase.execute(id);
+  }
+
+  @Post(":id/deposit")
+  @ApiOperation({
+    summary: "Efetuar depósito na carteira",
+    description: "Credita um valor na carteira com lock pessimista, garantia de idempotência, lançamento imutável no ledger contábil e emissão de evento na Outbox.",
+  })
+  @ApiHeader({
+    name: "Idempotency-Key",
+    required: true,
+    description: "Identificador único da requisição para prevenção de duplicidade",
+    example: "req-dep-001",
+  })
+  @ApiParam({ name: "id", format: "uuid", description: "UUID da carteira", example: "4a89972f-1ac6-4cf8-949f-c8c9605baf27" })
+  @ApiBody({
+    schema: {
+      type: "object",
+      required: ["amount"],
+      properties: {
+        amount: { type: "string", example: "50.00", description: "Valor do depósito com 2 casas decimais" },
+        providerId: { type: "string", example: "CASHIER", description: "Provedor ou canal de pagamento (default: CASHIER)" },
+        externalTransactionId: { type: "string", example: "dep-001", description: "ID externo do depósito no gateway (opcional)" },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: "Depósito efetuado com sucesso" })
+  @ApiResponse({ status: 200, description: "Replay idempotente do depósito" })
+  @ApiResponse({ status: 400, description: "Payload ou Idempotency-Key inválido" })
+  @ApiResponse({ status: 404, description: "Carteira não encontrada" })
+  @ApiResponse({ status: 409, description: "Conflito de idempotência" })
+  async deposit(
+    @Param("id") id: string,
+    @Headers("Idempotency-Key") idempotencyKeyHeader: string | undefined,
+    @Body(new ZodValidationPipe(DepositSchema)) dto: DepositDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<DepositResponseDto> {
+    this.assertValidUuid(id, "walletId");
+    if (!idempotencyKeyHeader || idempotencyKeyHeader.trim().length === 0) {
+      throw new DomainError(FailureCode.INVALID_PAYLOAD, "Missing Idempotency-Key header");
+    }
+
+    const result = await this.depositUseCase.execute(id, idempotencyKeyHeader.trim(), dto);
+    if (result.idempotentReplay) {
+      res.status(HttpStatus.OK);
+    } else {
+      res.status(HttpStatus.CREATED);
+    }
+    return result;
   }
 
   @Get(":id/ledger")

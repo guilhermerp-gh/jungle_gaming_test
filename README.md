@@ -1,6 +1,6 @@
 # 🎰 Distributed Wagering Processor
 
-Serviço financeiro distribuído de processamento de apostas (`BET`, `WIN`, `LOSS`, `REFUND`, `ROLLBACK`) com ledger imutável, garantia de idempotência persistente, concorrência segura por carteira e arquitetura orientada a eventos (Transactional Outbox e Inbox Pattern via SQS FIFO).
+Serviço financeiro distribuído de processamento de apostas (`BET`, `WIN`, `LOSS`, `REFUND`, `ROLLBACK`, `DEPOSIT`) com ledger imutável, garantia de idempotência persistente, concorrência segura por carteira e arquitetura orientada a eventos (Transactional Outbox e Inbox Pattern via SQS FIFO).
 
 ---
 
@@ -46,14 +46,36 @@ Antes de iniciar, certifique-se de ter instalado em sua máquina:
    * 📊 **Dashboard de Métricas & Observabilidade em Tempo Real:** 👉 **http://localhost:3000/dashboard** *(ou /metrics)*
 
    #### 🕹️ Ordem de Execução Recomendada (Passo a Passo Interativo):
-   1. **`POST /wallets`**: Crie uma carteira com saldo inicial (ex.: R$ 100,00). Copie o `id` da carteira retornado.
+   1. **`POST /wallets`**: Crie uma carteira com saldo inicial (ex.: R$ 20,00). Copie o `id` da carteira retornado.
    2. **`GET /wallets/{id}`**: Consulte a carteira pelo `id` para ver o saldo e a versão inicial.
-   3. **`POST /transactions`**: Faça uma aposta `BET` de R$ 30,00 informando um `Idempotency-Key` (ex.: `req-001`). O saldo restante passará para R$ 70,00 (`201 Created`). Os eventos contábeis são gerados na outbox e despachados para a fila SQS FIFO.
-   4. **`POST /transactions` (Idempotência)**: Clique em *Execute* novamente sem alterar nada (mesma chave e mesmo corpo). O retorno será `200 OK` com `"idempotentReplay": true`, sem debitar a carteira novamente!
-   5. **`POST /transactions`**: Credite um prêmio `WIN` de R$ 50,00 com nova chave (`req-002`), elevando o saldo para R$ 120,00.
-   6. **`GET /wallets/{id}/ledger`**: Obtenha o extrato contábil paginado com o histórico de todos os lançamentos.
-   7. **`POST /wallets/{id}/reconciliation`**: Dispare a reconciliação matemática da carteira para comprovar que `consistent: true` e `difference: "0.00"`.
-   8. **`GET /dashboard`**: Acesse o painel de métricas para conferir os eventos entregues no SQS FIFO (`events_published_total`), o lag da outbox zerado (`outbox_lag_seconds`) e as mensagens consumidas pelo worker SQS FIFO com Inbox deduplication (`sqs_messages_consumed_total`).
+   3. **`POST /wallets/{id}/deposit`**: Faça um depósito de fundos (ex.: R$ 50,00) com header `Idempotency-Key` (ex.: `dep-001`). O saldo sobe para R$ 70,00 (`201 Created`), gerando lançamento `CREDIT` no ledger e evento Outbox. Replays com a mesma chave retornam `200 OK` com `"idempotentReplay": true` e mensagem informativa sem creditar novamente!
+   4. **`POST /transactions`**: Faça uma aposta `BET` de R$ 10,00 informando um `Idempotency-Key` (ex.: `req-001`). O saldo restante passará para R$ 60,00 (`201 Created`). Os eventos contábeis são gerados na outbox e despachados para a fila SQS FIFO.
+   5. **`POST /transactions` (Idempotência / Replay)**: Clique em *Execute* novamente sem alterar nada (mesma chave e mesmo corpo). O retorno será `200 OK` com `"idempotentReplay": true` e a mensagem explicativa `"Replay de Idempotência: esta aposta já foi processada anteriormente. O saldo não foi debitado novamente."`, sem alterar o saldo ou duplicar lançamentos.
+   6. **`POST /transactions` (Estorno ou Prêmio)**:
+      * **Estorno (`REFUND`)**: Estorne a aposta com `REFUND` de R$ 10,00 referenciando a aposta (saldo retorna para R$ 70,00). Se repetir a mesma requisição, recebe `200 OK` de replay com aviso claro. Se tentar realizar um *novo* estorno para a mesma aposta, o sistema bloqueia com `422 Unprocessable Entity` (`ALREADY_REVERSED`) acompanhado de metadados de auditoria em `details` (ID do estorno original, data e valor).
+      * **Prêmio (`WIN`)**: Ou credite um prêmio `WIN` de R$ 50,00 com nova chave (`req-002`), elevando o saldo para R$ 110,00.
+   7. **`GET /wallets/{id}/ledger`**: Obtenha o extrato contábil paginado com o histórico de todos os lançamentos.
+   8. **`POST /wallets/{id}/reconciliation`**: Dispare a reconciliação matemática da carteira para comprovar que `consistent: true` e `difference: "0.00"`.
+   9. **`GET /dashboard`**: Acesse o painel de métricas para conferir os eventos entregues no SQS FIFO (`events_published_total`), o lag da outbox zerado (`outbox_lag_seconds`), as mensagens consumidas pelo worker SQS FIFO com Inbox deduplication (`sqs_messages_consumed_total`) e o monitoramento do Pending Reference Resolver (`pending_references_active_gauge`, `pending_references_resolved_total`).
+
+---
+
+## 📌 Guia de Endpoints da API
+
+| Método | Endpoint | Idempotency-Key | Descrição |
+| :--- | :--- | :---: | :--- |
+| `POST` | `/wallets` | Não | Criação de carteira para um jogador (`playerId`, `currency`, `initialBalance`) |
+| `GET` | `/wallets/:id` | Não | Consulta de saldo e metadados da carteira |
+| `POST` | `/wallets/:id/deposit` | **Sim** | Depósito de saldo com lock pessimista, ledger `CREDIT` e garantia de idempotência estrita |
+| `POST` | `/wallets/:id/reconciliation` | Não | Reconciliação matemática do saldo armazenado contra o somatório auditável do ledger |
+| `GET` | `/wallets/:id/ledger` | Não | Extrato contábil imutável com paginação baseada em cursor base64 (`limit`, `cursor`) |
+| `POST` | `/transactions` | **Sim** | Processamento de transações (`BET`, `WIN`, `LOSS`, `REFUND`, `ROLLBACK`) |
+| `GET` | `/transactions/:id` | Não | Consulta de transação por identificador interno UUID |
+| `GET` | `/transactions/external/:providerId/:externalId` | Não | Consulta de transação por provedor e ID externo |
+| `GET` | `/health/live` | Não | Liveness probe do serviço HTTP |
+| `GET` | `/metrics` / `/dashboard` | Não | Painel de telemetria e métricas Prometheus / HTML em tempo real |
+| `GET` | `/docs` | Não | Documentação interativa moderna da API com console de testes |
+| `GET` | `/api/docs` | Não | Swagger UI OpenAPI 3.0 |
 
 ---
 
@@ -62,7 +84,7 @@ Antes de iniciar, certifique-se de ter instalado em sua máquina:
 O projeto conta com validações estritas de tipagem, regras financeiras e testes automatizados organizados em pirâmide fail-fast:
 
 ### 🚀 Validação Completa de Ponta a Ponta (Recomendado)
-Executa a validação completa em ordem Fail-Fast: **Lint Money $\rightarrow$ Typecheck $\rightarrow$ Todos os 97 Testes Automatizados**:
+Executa a validação completa em ordem Fail-Fast: **Lint Money $\rightarrow$ Typecheck $\rightarrow$ Todos os 118 Testes Automatizados**:
 ```bash
 bun run test:all
 ```
@@ -77,20 +99,20 @@ bun run test:all
   bun run test:suites
   ```
 
-* **1. Testes de Integração (PostgreSQL Real, API HTTP e LocalStack SQS FIFO):**
-  Executa 37 testes cobrindo locks pessimistas (`SELECT ... FOR UPDATE`), triggers de imutabilidade do ledger, integridade de saldo, reversão única, endpoints HTTP E2E, Transactional Outbox Publisher (`wallet-events.fifo`) e SQS Consumer Worker com Inbox Pattern (`wager-transactions.fifo`, deduplicação atômica, poison pill com DLQ e graceful shutdown):
+* **1. Testes de Integração (PostgreSQL Real, API HTTP, LocalStack SQS FIFO e Pending Reference Resolver):**
+  Executa 44 testes cobrindo locks pessimistas (`SELECT ... FOR UPDATE`), triggers de imutabilidade do ledger, integridade de saldo, persistência de `DEPOSIT`, endpoints HTTP E2E (incluindo `POST /wallets/:id/deposit`), Transactional Outbox Publisher (`wallet-events.fifo`), SQS Consumer Worker com Inbox Pattern (`wager-transactions.fifo`, deduplicação atômica, poison pill com DLQ e graceful shutdown) e o **Pending Reference Resolver** (resolução fora de ordem de `WIN` e `REFUND` que chegam antes da `BET`, múltiplos resolvers em paralelo com `FOR UPDATE SKIP LOCKED`, expiração de pendências e proteção contra dupla reversão `ALREADY_REVERSED`):
   ```bash
   bun run test:integration
   ```
 
 * **2. Testes de Alta Concorrência e Idempotência Massiva (Fase 4):**
-  Executa 7 testes de estresse (290 asserções) cobrindo cenário 100/80/80, tempestade de idempotência (50x a 100x requisições simultâneas com a mesma chave), esgotamento de saldo (*hot wallet* com 100 threads), concorrência mista (BETs + WINs) e isolamento em múltiplas carteiras sem deadlocks:
+  Executa 9 testes de estresse (340 asserções) cobrindo cenário 100/80/80, tempestade de idempotência (50x a 100x requisições simultâneas com a mesma chave), esgotamento de saldo (*hot wallet* com 100 threads), concorrência mista (BETs + WINs), isolamento em múltiplas carteiras sem deadlocks e concorrência/replay storms de depósitos via `POST /wallets/:id/deposit`:
   ```bash
   bun run test:concurrency
   ```
 
-* **3. Testes Unitários de Domínio, Casos de Uso, Mensageria e Consumers:**
-  Executa 53 testes de regras de negócio, casos de uso de aplicação, máquina de estados das transações, publicador SQS FIFO, consumidor SQS com Inbox Pattern e DLQ, retentativas com backoff exponencial e aritmética do objeto `Money`:
+* **3. Testes Unitários de Domínio, Casos de Uso, Mensageria, Consumers e Resolvers:**
+  Executa 65 testes de regras de negócio (`WageringPolicy` para `DEPOSIT`, `BET`, `WIN`, `LOSS`, `REFUND`, `ROLLBACK`), casos de uso de aplicação (incluindo `DepositUseCase`), máquina de estados das transações, publicador SQS FIFO, consumidor SQS com Inbox Pattern e DLQ, worker e use case de resolução de pendências de referência com backoff exponencial e jitter, expiração por 10 tentativas / TTL de 15 minutos e aritmética do objeto `Money`:
   ```bash
   bun run test
   ```

@@ -36,6 +36,12 @@ describe("WageringPolicy", () => {
     expect(WageringPolicy.evaluate(tx("WIN"), ctx(wallet()))).toMatchObject({ direction: "CREDIT" });
     expect(WageringPolicy.evaluate(tx("WIN", "10", "b"), ctx(wallet())).type).toBe("PENDING_REFERENCE");
   });
+  test("DEPOSIT aplica crédito incondicionalmente no saldo", () => {
+    expect(WageringPolicy.evaluate(tx("DEPOSIT", "50.00"), ctx(wallet()))).toMatchObject({
+      type: "APPLY",
+      direction: "CREDIT",
+    });
+  });
   test("REFUND sem referência / ausente / ok", () => {
     expect(() => tx("REFUND")).toThrow();
     expect(WageringPolicy.evaluate(tx("REFUND", "80", "b"), ctx(wallet())).type).toBe("PENDING_REFERENCE");
