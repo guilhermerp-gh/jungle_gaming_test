@@ -19,6 +19,7 @@ import { FailureCode } from "../../domain/errors/failure-code";
 import { DomainError } from "../../domain/errors/domain-error";
 import { ProcessWagerTransactionUseCase } from "../../application/use-cases/process-wager-transaction.use-case";
 import { loadConfig } from "../../infrastructure/config/config";
+import { waitForFailureInjection } from "../../infrastructure/testing/failure-injection";
 import {
   defaultSqsConsumerMetrics,
   SqsConsumerMetrics,
@@ -101,9 +102,13 @@ export class WagerTransactionsConsumerWorker
       config.DLQ_QUEUE_URL ??
       this.queueUrl.replace("wager-transactions.fifo", "wager-transactions-dlq.fifo");
 
-    this.waitTimeSeconds = options?.waitTimeSeconds ?? 20;
+    this.waitTimeSeconds =
+      options?.waitTimeSeconds ??
+      (process.env.SQS_CONSUMER_WAIT_TIME_SECONDS ? Number(process.env.SQS_CONSUMER_WAIT_TIME_SECONDS) : 20);
     this.maxNumberOfMessages = options?.maxNumberOfMessages ?? 10;
-    this.visibilityTimeout = options?.visibilityTimeout ?? 30;
+    this.visibilityTimeout =
+      options?.visibilityTimeout ??
+      (process.env.SQS_CONSUMER_VISIBILITY_TIMEOUT ? Number(process.env.SQS_CONSUMER_VISIBILITY_TIMEOUT) : 30);
     this.pollIntervalMs = options?.pollIntervalMs ?? 100;
     this.metrics = options?.metrics ?? defaultSqsConsumerMetrics;
 
@@ -245,6 +250,7 @@ export class WagerTransactionsConsumerWorker
       } else {
         this.metrics.recordConsumed("wager-transactions-consumer", "success");
       }
+      await waitForFailureInjection("TEST_HOOK_AFTER_CONSUMER_COMMIT_MS");
 
       if (msg.ReceiptHandle) {
         await this.client.send(

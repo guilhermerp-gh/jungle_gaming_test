@@ -102,6 +102,7 @@ async function bootstrap() {
       level: "info",
       msg: "started",
       role: config.APP_ROLE,
+      instanceId: config.INSTANCE_ID,
       port: config.PORT,
       swaggerDocs: `http://localhost:${config.PORT}/api/docs`,
     }),

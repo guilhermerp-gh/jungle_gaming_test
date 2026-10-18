@@ -27,7 +27,9 @@ export class PendingReferenceResolverWorker
     private readonly resolveUseCase: ResolvePendingReferencesUseCase,
     @Optional() options?: PendingReferenceResolverWorkerOptions,
   ) {
-    this.pollIntervalMs = options?.pollIntervalMs ?? 1000;
+    this.pollIntervalMs =
+      options?.pollIntervalMs ??
+      (process.env.RESOLVER_POLL_INTERVAL_MS ? Number(process.env.RESOLVER_POLL_INTERVAL_MS) : 1000);
     this.batchSize = options?.batchSize ?? 50;
   }
 

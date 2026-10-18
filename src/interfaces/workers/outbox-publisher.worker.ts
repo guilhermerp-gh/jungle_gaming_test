@@ -21,9 +21,13 @@ export class OutboxPublisherWorker implements OnApplicationBootstrap, OnApplicat
     private readonly publishUseCase: PublishOutboxMessagesUseCase,
     @Optional() options?: OutboxPublisherWorkerOptions,
   ) {
-    this.pollIntervalMs = options?.pollIntervalMs ?? 200;
+    this.pollIntervalMs =
+      options?.pollIntervalMs ??
+      (process.env.OUTBOX_POLL_INTERVAL_MS ? Number(process.env.OUTBOX_POLL_INTERVAL_MS) : 200);
     this.batchSize = options?.batchSize ?? 50;
-    this.leaseMs = options?.leaseMs ?? 30_000;
+    this.leaseMs =
+      options?.leaseMs ??
+      (process.env.OUTBOX_LEASE_MS ? Number(process.env.OUTBOX_LEASE_MS) : 30_000);
   }
 
   async onApplicationBootstrap(): Promise<void> {

@@ -1,6 +1,6 @@
 {
   "name": "distributed-wagering-processor",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -16,6 +16,7 @@
     "test": "bun test test/unit",
     "test:integration": "bun test test/integration",
     "test:concurrency": "bun test test/concurrency",
+    "test:multi-instance": "bun test test/multi-instance --timeout 60000",
     "test:suites": "bun test test",
     "test:all": "bun run lint:money && bun run typecheck && bun test test",
     "test:pipeline": "bun run test:all",

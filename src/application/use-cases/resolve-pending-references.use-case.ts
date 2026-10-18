@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Logger } from "@nestjs/common";
+import { waitForFailureInjection } from "../../infrastructure/testing/failure-injection";
 import {
   WalletBalanceChanged,
   WagerTransactionProcessed,
@@ -84,6 +85,7 @@ export class ResolvePendingReferencesUseCase {
             return null;
           }
           const candidate = candidates[0]!;
+          await waitForFailureInjection("TEST_HOOK_AFTER_RESOLVER_CLAIM_MS");
           return this.resolveCandidateInTransaction(repos, candidate, now, { maxAttempts, ttlSeconds });
         });
       } catch (err) {

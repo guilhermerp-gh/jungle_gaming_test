@@ -1,6 +1,6 @@
 # 🎰 Distributed Wagering Processor
 
-Serviço financeiro distribuído de processamento de apostas (`BET`, `WIN`, `LOSS`, `REFUND`, `ROLLBACK`, `DEPOSIT`) com ledger imutável, garantia de idempotência persistente, concorrência segura por carteira e arquitetura orientada a eventos (Transactional Outbox e Inbox Pattern via SQS FIFO).
+Serviço financeiro distribuído de processamento de apostas (`BET`, `WIN`, `LOSS`, `REFUND`, `ROLLBACK`, `DEPOSIT`) com ledger imutável, garantia de idempotência persistente, concorrência segura por carteira, arquitetura orientada a eventos (Transactional Outbox e Inbox Pattern via SQS FIFO) e tolerância a falhas multi-instância com recuperação automática de workers.
 
 ---
 
@@ -32,6 +32,7 @@ Antes de iniciar, certifique-se de ter instalado em sua máquina:
    ```bash
    cp .env.example .env
    ```
+   *(Inclui suporte a `INSTANCE_ID=local` para identificação de nós e rastreabilidade em logs).*
 
 3. **Inicie o servidor de desenvolvimento:**
    ```bash
@@ -46,14 +47,14 @@ Antes de iniciar, certifique-se de ter instalado em sua máquina:
    * 📊 **Dashboard de Métricas & Observabilidade em Tempo Real:** 👉 **http://localhost:3000/dashboard** *(ou /metrics)*
 
    #### 🕹️ Ordem de Execução Recomendada (Passo a Passo Interativo):
-   1. **`POST /wallets`**: Crie uma carteira com saldo inicial (ex.: R$ 20,00). Copie o `id` da carteira retornado.
+   1. **`POST /wallets`**: Crie uma carteira informando um `playerId` (UUID válido, ex.: `a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11`), moeda `currency: "BRL"` e saldo inicial `initialBalance: "20.00"`. Copie o `id` da carteira retornado.
    2. **`GET /wallets/{id}`**: Consulte a carteira pelo `id` para ver o saldo e a versão inicial.
-   3. **`POST /wallets/{id}/deposit`**: Faça um depósito de fundos (ex.: R$ 50,00) com header `Idempotency-Key` (ex.: `dep-001`). O saldo sobe para R$ 70,00 (`201 Created`), gerando lançamento `CREDIT` no ledger e evento Outbox. Replays com a mesma chave retornam `200 OK` com `"idempotentReplay": true` e mensagem informativa sem creditar novamente!
-   4. **`POST /transactions`**: Faça uma aposta `BET` de R$ 10,00 informando um `Idempotency-Key` (ex.: `req-001`). O saldo restante passará para R$ 60,00 (`201 Created`). Os eventos contábeis são gerados na outbox e despachados para a fila SQS FIFO.
+   3. **`POST /wallets/{id}/deposit`**: Faça um depósito de fundos (`{"amount": "50.00"}`) com header `Idempotency-Key` (ex.: `dep-001`). O saldo sobe para R$ 70,00 (`201 Created`), gerando lançamento `CREDIT` no ledger e evento Outbox. Replays com a mesma chave retornam `200 OK` com `"idempotentReplay": true` e mensagem informativa sem creditar novamente!
+   4. **`POST /transactions`**: Faça uma aposta `BET` de R$ 10,00 informando `Idempotency-Key: req-001`, `providerId: "evolution"`, `externalTransactionId: "tx-ext-001"`, `kind: "BET"`, `amount: "10.00"`, `currency: "BRL"`, `roundId: "round-1"`, `gameId: "roulette"` e o `walletId`/`playerId`. O saldo passará para R$ 60,00 (`201 Created`).
    5. **`POST /transactions` (Idempotência / Replay)**: Clique em *Execute* novamente sem alterar nada (mesma chave e mesmo corpo). O retorno será `200 OK` com `"idempotentReplay": true` e a mensagem explicativa `"Replay de Idempotência: esta aposta já foi processada anteriormente. O saldo não foi debitado novamente."`, sem alterar o saldo ou duplicar lançamentos.
    6. **`POST /transactions` (Estorno ou Prêmio)**:
-      * **Estorno (`REFUND`)**: Estorne a aposta com `REFUND` de R$ 10,00 referenciando a aposta (saldo retorna para R$ 70,00). Se repetir a mesma requisição, recebe `200 OK` de replay com aviso claro. Se tentar realizar um *novo* estorno para a mesma aposta, o sistema bloqueia com `422 Unprocessable Entity` (`ALREADY_REVERSED`) acompanhado de metadados de auditoria em `details` (ID do estorno original, data e valor).
-      * **Prêmio (`WIN`)**: Ou credite um prêmio `WIN` de R$ 50,00 com nova chave (`req-002`), elevando o saldo para R$ 110,00.
+      * **Estorno (`REFUND`)**: Estorne a aposta com `kind: "REFUND"` de R$ 10,00 referenciando `referenceExternalTransactionId: "tx-ext-001"` (saldo retorna para R$ 70,00). Se repetir a mesma requisição, recebe `200 OK` de replay com aviso claro. Se tentar realizar um *novo* estorno para a mesma aposta, o sistema bloqueia com `422 Unprocessable Entity` (`ALREADY_REVERSED`) acompanhado de metadados de auditoria em `details` (ID do estorno original, data e valor).
+      * **Prêmio (`WIN`)**: Ou credite um prêmio `kind: "WIN"` de R$ 50,00 com nova chave (`req-002`), elevando o saldo para R$ 110,00.
    7. **`GET /wallets/{id}/ledger`**: Obtenha o extrato contábil paginado com o histórico de todos os lançamentos.
    8. **`POST /wallets/{id}/reconciliation`**: Dispare a reconciliação matemática da carteira para comprovar que `consistent: true` e `difference: "0.00"`.
    9. **`GET /dashboard`**: Acesse o painel de métricas para conferir os eventos entregues no SQS FIFO (`events_published_total`), o lag da outbox zerado (`outbox_lag_seconds`), as mensagens consumidas pelo worker SQS FIFO com Inbox deduplication (`sqs_messages_consumed_total`) e o monitoramento do Pending Reference Resolver (`pending_references_active_gauge`, `pending_references_resolved_total`).
@@ -84,7 +85,7 @@ Antes de iniciar, certifique-se de ter instalado em sua máquina:
 O projeto conta com validações estritas de tipagem, regras financeiras e testes automatizados organizados em pirâmide fail-fast:
 
 ### 🚀 Validação Completa de Ponta a Ponta (Recomendado)
-Executa a validação completa em ordem Fail-Fast: **Lint Money $\rightarrow$ Typecheck $\rightarrow$ Todos os 118 Testes Automatizados**:
+Executa a validação completa em ordem Fail-Fast: **Lint Money $\rightarrow$ Typecheck $\rightarrow$ Todos os 131 Testes Automatizados**:
 ```bash
 bun run test:all
 ```
@@ -111,25 +112,31 @@ bun run test:all
   bun run test:concurrency
   ```
 
-* **3. Testes Unitários de Domínio, Casos de Uso, Mensageria, Consumers e Resolvers:**
+* **3. Testes de Multi-instância e Recuperação (Fase 8):**
+  Inicia três processos Bun independentes contra o banco de teste compartilhado, envia tráfego a nós distintos e substitui uma instância no meio de um replay idempotente. Requer PostgreSQL e LocalStack ativos; os processos usam `APP_ROLE=api`, portas efêmeras e são encerrados automaticamente ao fim da suíte.
+  ```bash
+  bun run test:multi-instance
+  ```
+
+* **4. Testes Unitários de Domínio, Casos de Uso, Mensageria, Consumers e Resolvers:**
   Executa 65 testes de regras de negócio (`WageringPolicy` para `DEPOSIT`, `BET`, `WIN`, `LOSS`, `REFUND`, `ROLLBACK`), casos de uso de aplicação (incluindo `DepositUseCase`), máquina de estados das transações, publicador SQS FIFO, consumidor SQS com Inbox Pattern e DLQ, worker e use case de resolução de pendências de referência com backoff exponencial e jitter, expiração por 10 tentativas / TTL de 15 minutos e aritmética do objeto `Money`:
   ```bash
   bun run test
   ```
 
-* **4. Validação Estrita de Valores Monetários (Lint Money):**
+* **5. Validação Estrita de Valores Monetários (Lint Money):**
   Garante que nenhum `number`, `float` ou `parseFloat` seja utilizado para valores financeiros:
   ```bash
   bun run lint:money
   ```
 
-* **5. Checagem de Tipagem Estrita (Typecheck):**
+* **6. Checagem de Tipagem Estrita (Typecheck):**
   Executa a validação de tipos do TypeScript (`strict: true`, `noUncheckedIndexedAccess`):
   ```bash
   bun run typecheck
   ```
 
-* **6. Checagem Completa de Qualidade (Lint Geral + Money + Types + Testes):**
+* **7. Checagem Completa de Qualidade (Lint Geral + Money + Types + Testes):**
   ```bash
   bun run check
   ```
@@ -215,4 +222,12 @@ src/
 ├── infrastructure/          # Config, MikroORM, Postgres, SQS e Observabilidade
 ├── interfaces/              # Controllers HTTP, Consumers SQS e Workers
 └── main.ts                  # Ponto de entrada do NestJS com seleção de APP_ROLE
+
+test/
+├── unit/                    # Testes unitários de domínio e aplicação (65 testes)
+├── integration/             # Testes de integração Postgres, HTTP, SQS e Resolver (44 testes)
+├── concurrency/             # Testes de alta concorrência e estresse (9 testes)
+├── multi-instance/          # Testes multi-instância e recuperação distribuída (7 testes)
+├── fixtures/                # Fixtures para testes de falha determinísticos
+└── helpers/                 # Harness de Bun.spawn, healthcheck e utilitários de banco
 ```

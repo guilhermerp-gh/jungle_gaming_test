@@ -1,3 +1,4 @@
+import { waitForFailureInjection } from "../../infrastructure/testing/failure-injection";
 import type { MessagePublisherPort } from "../ports/message-publisher.port";
 import type { UnitOfWork } from "../ports/unit-of-work.port";
 import { defaultOutboxMetrics, type OutboxMetrics } from "../../infrastructure/observability/outbox-metrics";
@@ -40,6 +41,7 @@ export class PublishOutboxMessagesUseCase {
       const eventType = message.props.eventType;
       try {
         await this.publisher.publish(message);
+        await waitForFailureInjection("TEST_HOOK_AFTER_OUTBOX_PUBLISH_MS");
         message.markPublished(new Date());
         await this.uow.transactional(async (repos) => repos.outbox.save(message));
         this.metrics.recordPublished(eventType);

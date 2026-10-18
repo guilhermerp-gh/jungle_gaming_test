@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const schema = z.object({
   APP_ROLE: z.enum(["all", "api", "consumer", "outbox", "resolver"]).default("all"),
+  INSTANCE_ID: z.string().min(1).default("local"),
   PORT: z.coerce.number().int().default(3000),
   DATABASE_URL: z.string().url(),
   AWS_ENDPOINT_URL: z.string().url().optional(),

@@ -7,6 +7,38 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [0.8.0] - 18-10-2026
+
+### Resumo Executivo
+
+A versão 0.8.0 traz um salto significativo na confiabilidade e estabilidade contínua do sistema, assegurando que o saldo, depósitos, apostas e prêmios dos jogadores permaneçam 100% seguros e precisos mesmo em situações de instabilidade severa de servidores, quedas temporárias de energia ou reinicializações inesperadas da infraestrutura.
+
+Com a nova arquitetura de tolerância a falhas distribuída, nenhuma aposta é cobrada em duplicidade e nenhum prêmio é perdido caso uma máquina falhe ou seja reiniciada no meio de um processamento. Outras máquinas assumem a tarefa automaticamente e sem qualquer interrupção na experiência do usuário, garantindo uma jogabilidade contínua, justa e com integridade financeira absoluta.
+
+### ✨ Adicionado
+- Harness de orquestração multi-processo em `test/helpers/multi-instance.ts` gerenciando 3 processos Bun independentes com memória isolada, portas dinâmicas e captura em tempo real de logs estruturados.
+- Suíte completa de testes distribuídos em `test/multi-instance/multi-instance-recovery.test.ts` cobrindo 7 cenários: hot wallet concorrente entre nós distintos, persistência de replay idempotente após substituição de nó, tempestade de idempotência distribuída, isolamento horizontal entre carteiras, recuperação de crash no consumidor SQS pós-commit / pré-ack, recuperação de outbox após lease expirado e reinicialização forçada do pending reference resolver sob pendências fora de ordem.
+- Ganchos determinísticos de injeção de falhas (`src/infrastructure/testing/failure-injection.ts`) para reprodução de cenários de crash distribuído nos workers de mensageria.
+
+### 🔄 Modificado
+- Suporte à identificação de réplicas via variável `INSTANCE_ID` no schema de configuração e emissão no log estruturado de bootstrap (`src/main.ts`).
+- Parametrização por variáveis de ambiente de intervalos e tempos de expiração: `OUTBOX_LEASE_MS`, `OUTBOX_POLL_INTERVAL_MS`, `RESOLVER_POLL_INTERVAL_MS`, `SQS_CONSUMER_VISIBILITY_TIMEOUT` e `SQS_CONSUMER_WAIT_TIME_SECONDS`.
+- Script dedicado `test:multi-instance` no `package.json` e inclusão automática na execução do pipeline `test:all`.
+- Documentação do `README.md` atualizada com o harness e cenários da Fase 8.
+
+### 🐛 Corrigido
+- Prevenção de disputa concorrente por filas SQS FIFO entre instâncias de teste e instâncias de desenvolvimento locais através da geração dinâmica de filas dedicadas por ciclo de teste.
+- Eliminação de race conditions na propagação assíncrona do LocalStack SQS com configuração de tempo de espera explícito no fixture do consumidor.
+
+### 🧪 Sugestões de Testes
+- Executar a nova suíte de resiliência distribuída: `bun run test:multi-instance`.
+- Executar a pipeline completa de validação: `bun run test:all` (131 testes passando).
+- Validar conformidade de tipagem e integridade monetária: `bun run lint:money && bun run typecheck`.
+
+📄 [Notas detalhadas da versão](./docs/releases/00.08/00.08.00.md)
+
+---
+
 ## [0.7.1] - 18-10-2026
 
 ### Resumo Executivo
