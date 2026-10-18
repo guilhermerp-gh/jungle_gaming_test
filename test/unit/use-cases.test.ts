@@ -48,6 +48,7 @@ class InMemoryWalletRepository implements WalletRepository {
     this.map.set(wallet.id, wallet);
   }
   async saveBalance(wallet: Wallet): Promise<void> {
+    wallet.markSaved();
     this.map.set(wallet.id, wallet);
   }
 }
@@ -58,6 +59,9 @@ class InMemoryWagerRepository implements WagerTransactionRepository {
   public readonly byExternal = new Map<string, WagerTransaction>();
 
   async findById(id: string): Promise<WagerTransaction | null> {
+    return this.byId.get(id) ?? null;
+  }
+  async findByIdForUpdate(id: string): Promise<WagerTransaction | null> {
     return this.byId.get(id) ?? null;
   }
   async findByIdempotencyKey(key: string): Promise<WagerTransaction | null> {
@@ -383,6 +387,114 @@ describe("Application Use Cases (Unit Tests)", () => {
     expect(result.statusCode).toBe(202);
     expect(result.idempotentReplay).toBe(false);
     expect(result.transaction.status).toBe("PENDING_REFERENCE");
+  });
+
+  it("ProcessWagerTransactionUseCase > Fast-path na mesma carteira resolve pendência atomicamente na transação da BET", async () => {
+    const { uow } = createTestUow();
+    const createWallet = new CreateWalletUseCase(uow);
+    const processTx = new ProcessWagerTransactionUseCase(uow);
+
+    const playerId = randomUUID();
+    const wallet = await createWallet.execute({
+      playerId,
+      currency: "BRL",
+      initialBalance: "50.00",
+    });
+
+    // 1. WIN chega antes da BET -> 202 PENDING_REFERENCE
+    const winResult = await processTx.execute("key-win-fast", {
+      providerId: "provider-fast",
+      externalTransactionId: "ext-win-fast",
+      playerId,
+      walletId: wallet.id,
+      roundId: "round-fast",
+      gameId: "game-fast",
+      kind: "WIN",
+      amount: "100.00",
+      currency: "BRL",
+      referenceExternalTransactionId: "ext-bet-fast",
+    });
+    expect(winResult.statusCode).toBe(202);
+
+    // 2. BET chega -> 201 PROCESSED e o fast-path resolve o WIN na mesma transação
+    const betResult = await processTx.execute("key-bet-fast", {
+      providerId: "provider-fast",
+      externalTransactionId: "ext-bet-fast",
+      playerId,
+      walletId: wallet.id,
+      roundId: "round-fast",
+      gameId: "game-fast",
+      kind: "BET",
+      amount: "20.00",
+      currency: "BRL",
+    });
+    expect(betResult.statusCode).toBe(201);
+
+    // Saldo final: 50 - 20 + 100 = 130
+    const updatedWallet = await uow.transactional(async (r) => r.wallets.findById(wallet.id));
+    expect(updatedWallet!.balance.amount).toBe("130.00");
+
+    // WIN deve ter sido processado
+    const updatedWin = await uow.transactional(async (r) =>
+      r.wagers.findByExternalId("provider-fast", "ext-win-fast"),
+    );
+    expect(updatedWin!.status).toBe("PROCESSED");
+    expect(updatedWin!.props.referenceTransactionId).toBe(betResult.transaction.id);
+  });
+
+  it("ProcessWagerTransactionUseCase > Fast-path em carteira distinta apenas agenda next_attempt_at = now sem mutação de saldo", async () => {
+    const { uow } = createTestUow();
+    const createWallet = new CreateWalletUseCase(uow);
+    const processTx = new ProcessWagerTransactionUseCase(uow);
+
+    const player1 = randomUUID();
+    const player2 = randomUUID();
+    const wallet1 = await createWallet.execute({ playerId: player1, currency: "BRL", initialBalance: "10.00" });
+    const wallet2 = await createWallet.execute({ playerId: player2, currency: "BRL", initialBalance: "50.00" });
+
+    // WIN registrado na carteira 2 aguardando BET da carteira 1
+    await processTx.execute("key-win-cross", {
+      providerId: "provider-cross",
+      externalTransactionId: "ext-win-cross",
+      playerId: player2,
+      walletId: wallet2.id,
+      roundId: "round-cross",
+      gameId: "game-cross",
+      kind: "WIN",
+      amount: "30.00",
+      currency: "BRL",
+      referenceExternalTransactionId: "ext-bet-cross",
+    });
+
+    // BET processada na carteira 1
+    const betResult = await processTx.execute("key-bet-cross", {
+      providerId: "provider-cross",
+      externalTransactionId: "ext-bet-cross",
+      playerId: player1,
+      walletId: wallet1.id,
+      roundId: "round-cross",
+      gameId: "game-cross",
+      kind: "BET",
+      amount: "5.00",
+      currency: "BRL",
+    });
+    expect(betResult.statusCode).toBe(201);
+
+    // Carteira 1 debitada: 10 - 5 = 5.00
+    const w1 = await uow.transactional(async (r) => r.wallets.findById(wallet1.id));
+    expect(w1!.balance.amount).toBe("5.00");
+
+    // Carteira 2 NÃO movimentada pelo fast-path (continua 50.00)
+    const w2 = await uow.transactional(async (r) => r.wallets.findById(wallet2.id));
+    expect(w2!.balance.amount).toBe("50.00");
+
+    // WIN da carteira 2 permanece PENDING_REFERENCE, mas com nextAttemptAt elegível imediatamente (<= now)
+    const winTx = await uow.transactional(async (r) =>
+      r.wagers.findByExternalId("provider-cross", "ext-win-cross"),
+    );
+    expect(winTx!.status).toBe("PENDING_REFERENCE");
+    expect(winTx!.props.nextAttemptAt).toBeDefined();
+    expect(winTx!.props.nextAttemptAt!.getTime()).toBeLessThanOrEqual(Date.now() + 100);
   });
 
   it("GetWalletUseCase > retorna dados e saldo da carteira", async () => {

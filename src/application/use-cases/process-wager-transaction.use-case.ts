@@ -13,9 +13,14 @@ import { Money } from "../../domain/money/money";
 import { computePayloadHash } from "../../domain/wagering/payload-hash";
 import { WagerTransaction } from "../../domain/wagering/wager-transaction";
 import { WageringPolicy } from "../../domain/wagering/wagering-policy";
+import { Logger } from "@nestjs/common";
 import type { ProcessTransactionDto, TransactionResponseDto } from "../dto/transaction.dto";
-import type { UnitOfWork } from "../ports/unit-of-work.port";
-import { ResolvePendingReferencesUseCase } from "./resolve-pending-references.use-case";
+import type { TransactionalRepositories, UnitOfWork } from "../ports/unit-of-work.port";
+import {
+  defaultPendingReferenceMetrics,
+  type PendingReferenceMetrics,
+} from "../../infrastructure/observability/pending-reference-metrics";
+import type { Wallet } from "../../domain/wallet/wallet";
 
 export interface MessageProcessingContext {
   consumerName: string;
@@ -66,7 +71,12 @@ function toDto(tx: WagerTransaction, idempotentReplay = false): TransactionRespo
 }
 
 export class ProcessWagerTransactionUseCase {
-  constructor(private readonly uow: UnitOfWork) {}
+  private readonly logger = new Logger(ProcessWagerTransactionUseCase.name);
+
+  constructor(
+    private readonly uow: UnitOfWork,
+    private readonly pendingMetrics: PendingReferenceMetrics = defaultPendingReferenceMetrics,
+  ) {}
 
   async execute(
     idempotencyKey: string,
@@ -273,6 +283,22 @@ export class ProcessWagerTransactionUseCase {
           await repos.outbox.add(OutboxMessage.fromEvent(processedEvent));
           await markInboxIfPresent(now);
 
+          // Fast-path atômico: pendências da mesma carteira são resolvidas no mesmo lock/transação.
+          // Pendências de outra carteira são priorizadas com next_attempt_at = now para o worker.
+          const pendingForThis = await repos.wagers.findPendingByReference(
+            dto.providerId,
+            dto.externalTransactionId,
+          );
+
+          for (const pending of pendingForThis) {
+            if (pending.props.walletId === wallet.id) {
+              await this.resolveSameWalletPending(repos, pending, wallet, tx, now);
+            } else {
+              pending.markPendingReference(now, now);
+              await repos.wagers.update(pending);
+            }
+          }
+
           return {
             type: "PROCESSED" as const,
             tx,
@@ -397,22 +423,6 @@ export class ProcessWagerTransactionUseCase {
     }
 
     if (executionResult.type === "PROCESSED") {
-      // FAST-PATH: Disparar resolução de transações que estavam em PENDING_REFERENCE aguardando esta referência
-      try {
-        const pendingForThis = await this.uow.transactional(async (repos) => {
-          return repos.wagers.findPendingByReference(dto.providerId, dto.externalTransactionId);
-        });
-
-        if (pendingForThis.length > 0) {
-          const resolverUseCase = new ResolvePendingReferencesUseCase(this.uow);
-          for (const pending of pendingForThis) {
-            await resolverUseCase.resolveOne(pending.id, new Date());
-          }
-        }
-      } catch {
-        // Fast-path é uma otimização; qualquer exceção será recuperada pelo worker periódico
-      }
-
       return {
         statusCode: 201,
         idempotentReplay: false,
@@ -439,5 +449,128 @@ export class ProcessWagerTransactionUseCase {
       message,
       executionResult.details,
     );
+  }
+
+  private async resolveSameWalletPending(
+    repos: TransactionalRepositories,
+    pending: WagerTransaction,
+    wallet: Wallet,
+    referenceTx: WagerTransaction,
+    now: Date,
+  ): Promise<void> {
+    const startFastPathTime = performance.now();
+    const referenceAlreadyReversed = await repos.wagers.hasProcessedReversal(referenceTx.id);
+
+    const pendingDecision = WageringPolicy.evaluate(pending, {
+      wallet,
+      reference: referenceTx,
+      referenceAlreadyReversed,
+    });
+
+    if (pendingDecision.type === "APPLY") {
+      if (pendingDecision.direction === "CREDIT") {
+        const ledgerEntry = wallet.credit({
+          ledgerId: randomUUID(),
+          transactionId: pending.id,
+          amount: pending.props.money,
+          now,
+        });
+        pending.markProcessed(wallet.balance, now, referenceTx.id);
+        await repos.wagers.update(pending);
+        await repos.ledger.append(ledgerEntry);
+        await repos.wallets.saveBalance(wallet);
+        await repos.outbox.add(
+          OutboxMessage.fromEvent(
+            new WalletBalanceChanged(randomUUID(), now, {
+              walletId: wallet.id,
+              transactionId: pending.id,
+              balanceBefore: ledgerEntry.balanceBefore.amount,
+              balanceAfter: ledgerEntry.balanceAfter.amount,
+              currency: wallet.currency,
+              version: wallet.version,
+            }),
+          ),
+        );
+      } else if (pendingDecision.direction === "DEBIT") {
+        const ledgerEntry = wallet.debit({
+          ledgerId: randomUUID(),
+          transactionId: pending.id,
+          amount: pending.props.money,
+          now,
+          insufficientCode: pendingDecision.insufficientCode,
+        });
+        pending.markProcessed(wallet.balance, now, referenceTx.id);
+        await repos.wagers.update(pending);
+        await repos.ledger.append(ledgerEntry);
+        await repos.wallets.saveBalance(wallet);
+        await repos.outbox.add(
+          OutboxMessage.fromEvent(
+            new WalletBalanceChanged(randomUUID(), now, {
+              walletId: wallet.id,
+              transactionId: pending.id,
+              balanceBefore: ledgerEntry.balanceBefore.amount,
+              balanceAfter: ledgerEntry.balanceAfter.amount,
+              currency: wallet.currency,
+              version: wallet.version,
+            }),
+          ),
+        );
+      } else {
+        pending.markProcessed(wallet.balance, now, referenceTx.id);
+        await repos.wagers.update(pending);
+      }
+
+      await repos.outbox.add(
+        OutboxMessage.fromEvent(
+          new WagerTransactionProcessed(randomUUID(), now, {
+            transactionId: pending.id,
+            walletId: wallet.id,
+            kind: pending.kind,
+            amount: pending.props.money.amount,
+            currency: pending.props.money.currency,
+            resultBalance: pending.props.resultBalance ? pending.props.resultBalance.amount : null,
+          }),
+        ),
+      );
+
+      this.pendingMetrics.recordResolved("applied");
+      const durationMs = performance.now() - startFastPathTime;
+      this.logger.log({
+        msg: "Fast-path pending reference resolved: applied",
+        transactionId: pending.id,
+        providerId: pending.props.providerId,
+        referenceExternalTransactionId: pending.props.referenceExternalTransactionId,
+        walletId: pending.props.walletId,
+        attempts: pending.props.attempts,
+        outcome: "applied",
+        durationMs: Math.round(durationMs),
+      });
+    } else if (pendingDecision.type === "REJECT") {
+      pending.reject(pendingDecision.code, wallet.balance, now);
+      await repos.wagers.update(pending);
+      await repos.outbox.add(
+        OutboxMessage.fromEvent(
+          new WagerTransactionRejected(randomUUID(), now, {
+            transactionId: pending.id,
+            walletId: wallet.id,
+            kind: pending.kind,
+            failureCode: pendingDecision.code,
+          }),
+        ),
+      );
+
+      this.pendingMetrics.recordResolved("rejected_business");
+      const durationMs = performance.now() - startFastPathTime;
+      this.logger.log({
+        msg: "Fast-path pending reference rejected: rejected_business",
+        transactionId: pending.id,
+        providerId: pending.props.providerId,
+        referenceExternalTransactionId: pending.props.referenceExternalTransactionId,
+        walletId: pending.props.walletId,
+        attempts: pending.props.attempts,
+        outcome: "rejected_business",
+        durationMs: Math.round(durationMs),
+      });
+    }
   }
 }

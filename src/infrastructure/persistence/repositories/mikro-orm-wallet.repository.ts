@@ -43,5 +43,6 @@ export class MikroOrmWalletRepository implements WalletRepository {
         `Wallet ${wallet.id} version ${wallet.loadedVersion} changed concurrently`,
       );
     }
+    wallet.markSaved();
   }
 }

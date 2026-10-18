@@ -13,6 +13,15 @@ export class MikroOrmWagerTransactionRepository implements WagerTransactionRepos
     return r ? WagerTransactionMapper.toDomain(r) : null;
   }
 
+  async findByIdForUpdate(id: string): Promise<WagerTransaction | null> {
+    const r = await this.em.findOne(
+      WagerTransactionSchema,
+      { id },
+      { lockMode: LockMode.PESSIMISTIC_WRITE, disableIdentityMap: true },
+    );
+    return r ? WagerTransactionMapper.toDomain(r) : null;
+  }
+
   async findByIdempotencyKey(idempotencyKey: string): Promise<WagerTransaction | null> {
     const r = await this.em.findOne(WagerTransactionSchema, { idempotencyKey }, { disableIdentityMap: true });
     return r ? WagerTransactionMapper.toDomain(r) : null;

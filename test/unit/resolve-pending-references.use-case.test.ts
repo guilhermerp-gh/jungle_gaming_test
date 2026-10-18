@@ -11,7 +11,10 @@ import type {
   WalletRepository,
 } from "../../src/application/ports/repositories.port";
 import type { TransactionalRepositories, UnitOfWork } from "../../src/application/ports/unit-of-work.port";
-import { ResolvePendingReferencesUseCase } from "../../src/application/use-cases/resolve-pending-references.use-case";
+import {
+  calculateBackoffDelayMs,
+  ResolvePendingReferencesUseCase,
+} from "../../src/application/use-cases/resolve-pending-references.use-case";
 import { FailureCode } from "../../src/domain/errors/failure-code";
 import type { WalletLedgerEntry } from "../../src/domain/ledger/wallet-ledger-entry";
 import type { OutboxMessage } from "../../src/domain/messaging/outbox-message";
@@ -32,6 +35,7 @@ class InMemoryWalletRepo implements WalletRepository {
     this.map.set(wallet.id, wallet);
   }
   async saveBalance(wallet: Wallet): Promise<void> {
+    wallet.markSaved();
     this.map.set(wallet.id, wallet);
   }
 }
@@ -42,6 +46,9 @@ class InMemoryWagerRepo implements WagerTransactionRepository {
   public readonly byExternal = new Map<string, WagerTransaction>();
 
   async findById(id: string): Promise<WagerTransaction | null> {
+    return this.byId.get(id) ?? null;
+  }
+  async findByIdForUpdate(id: string): Promise<WagerTransaction | null> {
     return this.byId.get(id) ?? null;
   }
   async findByIdempotencyKey(key: string): Promise<WagerTransaction | null> {
@@ -556,4 +563,88 @@ describe("ResolvePendingReferencesUseCase (Unit Tests)", () => {
     expect(result.appliedCount).toBe(0);
     expect(result.activeCount).toBe(3);
   });
+
+  it("calculateBackoffDelayMs > calcula backoff exponencial com teto de 60s e jitter respeitado", () => {
+    // attempts = 0 -> base: 1000ms
+    expect(calculateBackoffDelayMs(0, () => 0)).toBe(1000);
+    expect(calculateBackoffDelayMs(0, () => 500)).toBe(1500);
+
+    // attempts = 1 -> base: 2000ms
+    expect(calculateBackoffDelayMs(1, () => 0)).toBe(2000);
+
+    // attempts = 3 -> base: 8000ms
+    expect(calculateBackoffDelayMs(3, () => 250)).toBe(8250);
+
+    // attempts = 5 -> base: 32000ms
+    expect(calculateBackoffDelayMs(5, () => 0)).toBe(32000);
+
+    // attempts = 6 -> 64000ms, mas teto é 60000ms!
+    expect(calculateBackoffDelayMs(6, () => 0)).toBe(60000);
+
+    // attempts = 10 -> base limitada a 60000ms
+    expect(calculateBackoffDelayMs(10, () => 100)).toBe(60100);
+
+    // Jitter padrão deve estar entre [base, base + 1000)
+    const randomized = calculateBackoffDelayMs(2);
+    expect(randomized).toBeGreaterThanOrEqual(4000);
+    expect(randomized).toBeLessThan(5000);
+  });
+
+  it("execute > cada claim e resolução é atômica e não reprocessa pendência já resolvida", async () => {
+    const { wallets, wagers, useCase } = setup();
+
+    const now = new Date("2026-10-17T12:00:00Z");
+    const playerId = randomUUID();
+    const wallet = Wallet.open({ id: randomUUID(), playerId, currency: "BRL", now });
+    await wallets.insert(wallet);
+
+    // BET já confirmada
+    const bet = WagerTransaction.create({
+      id: randomUUID(),
+      providerId: "prov-atomic",
+      externalTransactionId: "bet-at-1",
+      idempotencyKey: "key-bet-at",
+      payloadHash: "hash-bet-at",
+      walletId: wallet.id,
+      playerId,
+      roundId: "r-at",
+      gameId: "g-1",
+      kind: "BET",
+      money: Money.from("10.00", "BRL"),
+      referenceExternalTransactionId: null,
+      now,
+    });
+    bet.markProcessed(Money.from("0.00", "BRL"), now);
+    await wagers.insert(bet);
+
+    // WIN dependente vencido
+    const win = WagerTransaction.create({
+      id: randomUUID(),
+      providerId: "prov-atomic",
+      externalTransactionId: "win-at-1",
+      idempotencyKey: "key-win-at",
+      payloadHash: "hash-win-at",
+      walletId: wallet.id,
+      playerId,
+      roundId: "r-at",
+      gameId: "g-1",
+      kind: "WIN",
+      money: Money.from("50.00", "BRL"),
+      referenceExternalTransactionId: "bet-at-1",
+      now,
+    });
+    win.markPendingReference(new Date("2026-10-17T11:59:59Z"), now);
+    await wagers.insert(win);
+
+    const result = await useCase.execute({ now, batchSize: 5 });
+    expect(result.claimedCount).toBe(1);
+    expect(result.appliedCount).toBe(1);
+    expect(win.status).toBe("PROCESSED");
+
+    // Segunda execução imediata não deve re-reivindicar nada
+    const secondResult = await useCase.execute({ now, batchSize: 5 });
+    expect(secondResult.claimedCount).toBe(0);
+    expect(secondResult.appliedCount).toBe(0);
+  });
 });
+

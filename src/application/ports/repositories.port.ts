@@ -23,6 +23,7 @@ export interface WalletRepository {
 
 export interface WagerTransactionRepository {
   findById(id: string): Promise<WagerTransaction | null>;
+  findByIdForUpdate(id: string): Promise<WagerTransaction | null>;
   findByIdempotencyKey(idempotencyKey: string): Promise<WagerTransaction | null>;
   findByExternalId(providerId: string, externalTransactionId: string): Promise<WagerTransaction | null>;
   /** Existe reversão (REFUND/ROLLBACK) PROCESSED apontando para a transação? */

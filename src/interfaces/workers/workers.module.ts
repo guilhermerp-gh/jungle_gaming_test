@@ -66,8 +66,9 @@ export class WorkersModule {
       },
       {
         provide: ProcessWagerTransactionUseCase,
-        useFactory: (uow: UnitOfWork) => new ProcessWagerTransactionUseCase(uow),
-        inject: [WORKERS_UNIT_OF_WORK],
+        useFactory: (uow: UnitOfWork, metrics: PendingReferenceMetrics) =>
+          new ProcessWagerTransactionUseCase(uow, metrics),
+        inject: [WORKERS_UNIT_OF_WORK, PendingReferenceMetrics],
       },
       {
         provide: PublishOutboxMessagesUseCase,

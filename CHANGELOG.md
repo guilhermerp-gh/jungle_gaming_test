@@ -7,6 +7,37 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [0.7.1] - 18-10-2026
+
+### Resumo Executivo
+
+A versão 0.7.1 aprimora a agilidade e a confiabilidade na liberação de prêmios e estornos pendentes de apostas. O processamento agora garante que ganhos associados a apostas que chegam fora de ordem sejam creditados de forma imediata na mesma carteira do jogador, eliminando qualquer atraso na atualização do saldo disponível.
+
+Além disso, a estabilidade interna na resolução de transações simultâneas foi fortalecida para evitar conflitos ou tentativas redundantes, assegurando que o jogador veja seu saldo sempre consistente e em tempo real, mesmo durante momentos de alto volume de apostas.
+
+### ✨ Adicionado
+- Resolução atômica Fast-Path em `ProcessWagerTransactionUseCase` para liquidação imediata na mesma transação de banco de transações dependentes (`PENDING_REFERENCE`) da mesma carteira.
+- Reagendamento prioritário imediato (`next_attempt_at = now()`) para pendências vinculadas a carteiras distintas.
+- Logs Pino estruturados completos com atributos de auditoria contábil e métricas Prometheus (`pending_references_active_gauge`, `pending_references_resolved_total`, `pending_reference_resolution_duration_seconds`, `pending_reference_errors_total`).
+
+### 🔄 Modificado
+- Reivindicação atômica individual com `FOR UPDATE SKIP LOCKED` e `findByIdForUpdate` em `ResolvePendingReferencesUseCase`, mantendo o lock exclusivo durante toda a transação de resolução.
+- Função pura `calculateBackoffDelayMs(attempts, jitterGenerator)` com injeção de gerador para testes determinísticos.
+- Método `Wallet.markSaved()` chamado após persistência de saldo no repositório MikroORM, evitando falso positivo de `ConcurrencyConflictError` em múltiplas alterações na mesma sessão.
+
+### 🐛 Corrigido
+- Eliminação da liberação prematura de locks pessimistas no worker do resolver.
+- Refatoração dos testes de integração para evitar mascaramento do fast-path e comprovar concorrência real entre resolvers no PostgreSQL com zero colisões.
+
+### 🧪 Sugestões de Testes
+- Executar `bun run check` para validar a suíte completa com 124 testes.
+- Testar concorrência do resolver no banco: `bun test test/integration/pending-reference-resolver.integration.test.ts`.
+- Validar fluxo manual no Swagger (`http://localhost:3000/api/docs`) com envio de `WIN` seguido de `BET` e verificar crédito instantâneo via Fast-Path.
+
+📄 [Notas detalhadas da versão](./docs/releases/00.07/00.07.01.md)
+
+---
+
 ## [0.7.0] - 18-10-2026
 
 ### Resumo Executivo

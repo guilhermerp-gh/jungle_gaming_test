@@ -17,13 +17,13 @@ export class Wallet {
   private _version: number;
   private _updatedAt: Date;
   /** Versão lida do banco; usada na checagem `WHERE version = ?` do UPDATE. */
-  public readonly loadedVersion: number;
+  private _loadedVersion: number;
 
   private constructor(private readonly props: WalletProps) {
     this._balance = props.balance;
     this._version = props.version;
     this._updatedAt = props.updatedAt;
-    this.loadedVersion = props.version;
+    this._loadedVersion = props.version;
   }
 
   static open(args: { id: string; playerId: string; currency: string; now: Date }): Wallet {
@@ -49,7 +49,12 @@ export class Wallet {
   get version(): number { return this._version; }
   get updatedAt(): Date { return this._updatedAt; }
   get createdAt(): Date { return this.props.createdAt; }
-  get balanceChanged(): boolean { return this._version !== this.loadedVersion; }
+  get loadedVersion(): number { return this._loadedVersion; }
+  get balanceChanged(): boolean { return this._version !== this._loadedVersion; }
+
+  markSaved(): void {
+    this._loadedVersion = this._version;
+  }
 
   credit(args: { ledgerId: string; transactionId: string; amount: Money; now: Date }): WalletLedgerEntry {
     return this.apply("CREDIT", args);

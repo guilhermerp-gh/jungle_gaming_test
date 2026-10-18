@@ -11,7 +11,7 @@
 | **Versão** | v1.0 |
 | **Data** | 18/10/2026 |
 | **Autor** | Guilherme |
-| **Status** | Rascunho |
+| **Status** | Concluído |
 | **Prioridade** | Alta |
 | **Tipo** | Correção |
 | **Referência** | `docs/executed/2026-10-17-phase-07-pending-reference-resolver.md` |
@@ -97,17 +97,17 @@ Adequar o Pending Reference Resolver aos requisitos de concorrência distribuíd
 
 ## ✅ Critérios de Aceite
 
-- [ ] Quando dois ou mais resolvers executarem simultaneamente, cada `PENDING_REFERENCE` elegível deverá ser reivindicada por no máximo um worker e não poderá gerar tentativas concorrentes de resolução.
-- [ ] Quando uma pendência for processada por um worker, a seleção com `SKIP LOCKED`, a decisão, a alteração da carteira, o ledger e os eventos de outbox deverão ocorrer antes da liberação do lock da pendência.
-- [ ] Quando um `WIN` ou `REFUND` pendente for resolvido, deverá existir exatamente um ledger associado à transação e o saldo deverá reconciliar com o ledger.
-- [ ] Quando o fast-path encontrar pendência da mesma carteira, a referência e a pendência deverão ser confirmadas ou revertidas juntas na mesma transação SQL.
-- [ ] Quando o fast-path encontrar pendência de outra carteira, ele deverá somente definir `next_attempt_at` como elegível imediatamente; a movimentação financeira deverá ocorrer no worker com lock da carteira alvo.
-- [ ] Quando uma referência nunca chegar, a pendência deverá terminar em `REJECTED/REFERENCE_NOT_FOUND` após 10 tentativas ou 15 minutos, sem ledger nem alteração de saldo.
-- [ ] Quando houver `REFUND` ou `ROLLBACK` já processado para a referência, a nova reversão deverá terminar em `REJECTED/ALREADY_REVERSED` sem lançamento adicional.
-- [ ] Quando o resolver aplicar, rejeitar, expirar ou reagendar uma pendência, `pending_references_resolved_total{outcome}` deverá registrar o outcome correto; duração, erros e gauge de pendentes também deverão ser atualizados.
-- [ ] Quando ocorrer resolução, rejeição, reagendamento ou erro, deverá existir log estruturado com todos os campos obrigatórios da spec.
-- [ ] Quando `APP_ROLE` for `all` ou `resolver`, o worker deverá executar polling de 1 segundo; para outros papéis, deverá permanecer desativado e encerrar graciosamente em até 20 segundos.
-- [ ] Quando a suíte for executada com PostgreSQL e serviços de integração disponíveis, `bun run test:all` deverá finalizar sem falhas.
+- [x] Quando dois ou mais resolvers executarem simultaneamente, cada `PENDING_REFERENCE` elegível deverá ser reivindicada por no máximo um worker e não poderá gerar tentativas concorrentes de resolução.
+- [x] Quando uma pendência for processada por um worker, a seleção com `SKIP LOCKED`, a decisão, a alteração da carteira, o ledger e os eventos de outbox deverão ocorrer antes da liberação do lock da pendência.
+- [x] Quando um `WIN` ou `REFUND` pendente for resolvido, deverá existir exatamente um ledger associado à transação e o saldo deverá reconciliar com o ledger.
+- [x] Quando o fast-path encontrar pendência da mesma carteira, a referência e a pendência deverão ser confirmadas ou revertidas juntas na mesma transação SQL.
+- [x] Quando o fast-path encontrar pendência de outra carteira, ele deverá somente definir `next_attempt_at` como elegível imediatamente; a movimentação financeira deverá ocorrer no worker com lock da carteira alvo.
+- [x] Quando uma referência nunca chegar, a pendência deverá terminar em `REJECTED/REFERENCE_NOT_FOUND` após 10 tentativas ou 15 minutos, sem ledger nem alteração de saldo.
+- [x] Quando houver `REFUND` ou `ROLLBACK` já processado para a referência, a nova reversão deverá terminar em `REJECTED/ALREADY_REVERSED` sem lançamento adicional.
+- [x] Quando o resolver aplicar, rejeitar, expirar ou reagendar uma pendência, `pending_references_resolved_total{outcome}` deverá registrar o outcome correto; duração, erros e gauge de pendentes também deverão ser atualizados.
+- [x] Quando ocorrer resolução, rejeição, reagendamento ou erro, deverá existir log estruturado com todos os campos obrigatórios da spec.
+- [x] Quando `APP_ROLE` for `all` ou `resolver`, o worker deverá executar polling de 1 segundo; para outros papéis, deverá permanecer desativado e encerrar graciosamente em até 20 segundos.
+- [x] Quando a suíte for executada com PostgreSQL e serviços de integração disponíveis, `bun run test:all` deverá finalizar sem falhas.
 
 ---
 
@@ -167,16 +167,16 @@ Adequar o Pending Reference Resolver aos requisitos de concorrência distribuíd
 
 ## 🧪 Testes Esperados
 
-- [ ] Unitário: claim e resolução usam o mesmo contexto transacional; uma pendência já decidida não é aplicada novamente.
-- [ ] Unitário: cada outcome atualiza a métrica correta; erros são contabilizados e logados com o contexto obrigatório.
-- [ ] Unitário: backoff respeita tentativa contabilizada, jitter de 0 a 1000 ms e teto de 60 s.
-- [ ] Unitário: fast-path resolve pendência da mesma carteira no contexto corrente e apenas prioriza pendência de outra carteira.
-- [ ] Integração PostgreSQL: dois resolvers disputam as mesmas pendências elegíveis e cada uma é processada uma única vez, sem erros e sem ledger duplicado.
-- [ ] Integração PostgreSQL: `WIN` antes de `BET` e `REFUND` antes de `BET` preservam saldo, ledger, referência e outbox corretos.
-- [ ] Integração PostgreSQL: referência rejeitada produz `REFERENCE_NOT_PROCESSED`; timeout produz `REFERENCE_NOT_FOUND`; dupla reversão produz `ALREADY_REVERSED`.
-- [ ] Integração PostgreSQL: reconciliação final de cada carteira permanece com diferença `0.00`.
-- [ ] Integração: worker respeita `APP_ROLE`, intervalo de polling e shutdown gracioso.
-- [ ] Qualidade: `bun run check` e `bun run test:all` passam com os serviços requeridos disponíveis.
+- [x] Unitário: claim e resolução usam o mesmo contexto transacional; uma pendência já decidida não é aplicada novamente.
+- [x] Unitário: cada outcome atualiza a métrica correta; erros são contabilizados e logados com o contexto obrigatório.
+- [x] Unitário: backoff respeita tentativa contabilizada, jitter de 0 a 1000 ms e teto de 60 s.
+- [x] Unitário: fast-path resolve pendência da mesma carteira no contexto corrente e apenas prioriza pendência de outra carteira.
+- [x] Integração PostgreSQL: dois resolvers disputam as mesmas pendências elegíveis e cada uma é processada uma única vez, sem erros e sem ledger duplicado.
+- [x] Integração PostgreSQL: `WIN` antes de `BET` e `REFUND` antes de `BET` preservam saldo, ledger, referência e outbox corretos.
+- [x] Integração PostgreSQL: referência rejeitada produz `REFERENCE_NOT_PROCESSED`; timeout produz `REFERENCE_NOT_FOUND`; dupla reversão produz `ALREADY_REVERSED`.
+- [x] Integração PostgreSQL: reconciliação final de cada carteira permanece com diferença `0.00`.
+- [x] Integração: worker respeita `APP_ROLE`, intervalo de polling e shutdown gracioso.
+- [x] Qualidade: `bun run check` e `bun run test:all` passam com os serviços requeridos disponíveis.
 
 ---
 

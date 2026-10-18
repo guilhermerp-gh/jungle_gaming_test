@@ -19,8 +19,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { ProcessWagerTransactionUseCase } from "../../src/application/use-cases/process-wager-transaction.use-case";
+import { ReconcileWalletUseCase } from "../../src/application/use-cases/reconcile-wallet.use-case";
 import { ResolvePendingReferencesUseCase } from "../../src/application/use-cases/resolve-pending-references.use-case";
 import { FailureCode } from "../../src/domain/errors/failure-code";
+import { Money } from "../../src/domain/money/money";
+import { WagerTransaction } from "../../src/domain/wagering/wager-transaction";
 import { PendingReferenceMetrics } from "../../src/infrastructure/observability/pending-reference-metrics";
 import { Registry } from "prom-client";
 import {
@@ -297,76 +300,93 @@ describe("Pending Reference Resolver (Integration Tests - Fase 7)", () => {
     expect(rollbackInDb!.failureCode).toBe(FailureCode.REFERENCE_NOT_PROCESSED);
   });
 
-  it("Concorrência: múltiplos resolvers executando em paralelo com SKIP LOCKED não colidem", async () => {
-    // Cria 10 carteiras e 10 transações dependentes
+  it("Concorrência: múltiplos resolvers executando em paralelo com SKIP LOCKED disputam pendências elegíveis sem colisão", async () => {
     const count = 10;
-    const betsToProcess: { providerId: string; externalId: string; amount: string; walletId: string; playerId: string }[] = [];
+    const items: { walletId: string; playerId: string; roundId: string; betId: string; winId: string }[] = [];
 
+    // 1. Processa 10 apostas (BETs) com sucesso em 10 carteiras distintas
     for (let i = 0; i < count; i++) {
       const { wallet } = await seedWallet(db.uow, "100.00");
       const betId = `bet-conc-${i}-${randomUUID()}`;
       const winId = `win-conc-${i}-${randomUUID()}`;
+      const roundId = `round-conc-${i}`;
 
-      // Injeta WIN antes da BET
-      await processUseCase.execute(`key-win-conc-${i}`, {
+      const betRes = await processUseCase.execute(`key-bet-conc-${i}`, {
         providerId: "provider-concurrent",
-        externalTransactionId: winId,
+        externalTransactionId: betId,
         playerId: wallet.playerId,
         walletId: wallet.id,
-        roundId: `round-conc-${i}`,
-        gameId: "blackjack",
-        kind: "WIN",
-        amount: "20.00",
-        currency: "BRL",
-        referenceExternalTransactionId: betId,
-      });
-
-      betsToProcess.push({
-        providerId: "provider-concurrent",
-        externalId: betId,
-        amount: "10.00",
-        walletId: wallet.id,
-        playerId: wallet.playerId,
-      });
-    }
-
-    // Processa todas as BETs
-    for (let i = 0; i < count; i++) {
-      const b = betsToProcess[i]!;
-      await processUseCase.execute(`key-bet-conc-${i}`, {
-        providerId: b.providerId,
-        externalTransactionId: b.externalId,
-        playerId: b.playerId,
-        walletId: b.walletId,
-        roundId: `round-conc-${i}`,
+        roundId,
         gameId: "blackjack",
         kind: "BET",
-        amount: b.amount,
+        amount: "10.00",
         currency: "BRL",
       });
+      expect(betRes.statusCode).toBe(201);
+      items.push({ walletId: wallet.id, playerId: wallet.playerId, roundId, betId, winId });
     }
 
-    // Executa dois resolvers concorrentes simultaneamente
+    // 2. Insere 10 WINs diretamente como PENDING_REFERENCE vencidos (nextAttemptAt no passado)
+    // Garantindo que os resolvers disputem os registros reais no PostgreSQL sem serem antecipados pelo fast-path
+    const pastDate = new Date(Date.now() - 5000);
+    await db.uow.transactional(async (repos) => {
+      for (const item of items) {
+        const winTx = WagerTransaction.create({
+          id: randomUUID(),
+          providerId: "provider-concurrent",
+          externalTransactionId: item.winId,
+          idempotencyKey: `key-win-conc-${item.winId}`,
+          payloadHash: `hash-${item.winId}`,
+          walletId: item.walletId,
+          playerId: item.playerId,
+          roundId: item.roundId,
+          gameId: "blackjack",
+          kind: "WIN",
+          money: Money.from("20.00", "BRL"),
+          referenceExternalTransactionId: item.betId,
+          now: pastDate,
+        });
+        winTx.markPendingReference(pastDate, pastDate);
+        await repos.wagers.insert(winTx);
+      }
+    });
+
+    // Comprova que as 10 pendências estão ativas no PostgreSQL para serem disputadas pelos workers
+    const pendingBefore = await db.uow.transactional(async (r) => r.wagers.countActivePendingReferences());
+    expect(pendingBefore).toBe(count);
+
+    // 3. Executa dois resolvers concorrentes simultaneamente
     const resolverA = new ResolvePendingReferencesUseCase(db.uow, metrics);
     const resolverB = new ResolvePendingReferencesUseCase(db.uow, metrics);
 
     const [resA, resB] = await Promise.all([
-      resolverA.execute({ now: new Date(Date.now() + 10_000), batchSize: 10 }),
-      resolverB.execute({ now: new Date(Date.now() + 10_000), batchSize: 10 }),
+      resolverA.execute({ now: new Date(), batchSize: 10 }),
+      resolverB.execute({ now: new Date(), batchSize: 10 }),
     ]);
 
-    expect(resA).toBeDefined();
-    expect(resB).toBeDefined();
+    // O total reivindicado e aplicado pelos dois workers combinados deve ser exatamente 10
+    expect(resA.claimedCount + resB.claimedCount).toBe(count);
+    expect(resA.appliedCount + resB.appliedCount).toBe(count);
+    expect(resA.rejectedBusinessCount + resB.rejectedBusinessCount).toBe(0);
+    expect(resA.rescheduledCount + resB.rescheduledCount).toBe(0);
 
-    // Todas as 10 carteiras devem ter saldo consistente: 100 - 10 + 20 = 110.00
-    for (const b of betsToProcess) {
-      const w = await db.uow.transactional(async (r) => r.wallets.findById(b.walletId));
+    // Nenhuma pendência restante no banco
+    const pendingAfter = await db.uow.transactional(async (r) => r.wagers.countActivePendingReferences());
+    expect(pendingAfter).toBe(0);
+
+    // Todas as 10 carteiras devem convergir no saldo e ledger exatos: 100 - 10 + 20 = 110.00
+    for (const item of items) {
+      const w = await db.uow.transactional(async (r) => r.wallets.findById(item.walletId));
       expect(w!.balance.amount).toBe("110.00");
 
-      const totals = await db.uow.transactional(async (r) => r.ledger.totals(b.walletId));
+      const totals = await db.uow.transactional(async (r) => r.ledger.totals(item.walletId));
       expect(totals.entries).toBe(3); // OPENING + BET + WIN
       expect(totals.credits).toBe("120.00"); // 100 + 20
       expect(totals.debits).toBe("10.00");
+
+      const rec = await new ReconcileWalletUseCase(db.uow).execute(item.walletId);
+      expect(rec.consistent).toBe(true);
+      expect(rec.difference).toBe("0.00");
     }
   });
 });
