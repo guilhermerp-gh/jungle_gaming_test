@@ -10,6 +10,8 @@ Serviço financeiro distribuído de processamento de apostas (`BET`, `WIN`, `LOS
 
 ---
 
+## Caso queira rodar o projeto todo via docker ir para a linha 219 desse arquivo
+
 ## 📋 Pré-requisitos
 
 Antes de iniciar, certifique-se de ter instalado em sua máquina:
@@ -48,9 +50,18 @@ Antes de iniciar, certifique-se de ter instalado em sua máquina:
 4. **Portais Web e Documentação Interativa:**
    Com o servidor ativo, acesse pelo navegador:
    * 🏠 **Portal Principal de Navegação:** 👉 **http://localhost:3000/**
+   * 🎮 **Simulador Visual & Laboratório de Concorrência:** 👉 **http://localhost:3000/simulator** *(ou /playground)*
    * 📚 **API Documentation & Explorer (Glassmorphic):** 👉 **http://localhost:3000/docs**
    * ⚡ **Swagger UI Clássico (OpenAPI 3.0):** 👉 **http://localhost:3000/api/docs**
    * 📊 **Dashboard de Métricas & Observabilidade em Tempo Real:** 👉 **http://localhost:3000/dashboard** *(ou /metrics)*
+
+   > 🎮 **Destaque para Avaliação — Simulador Visual e Laboratório Interativo:**
+   > Ao acessar **http://localhost:3000/simulator**, você pode testar todo o ciclo financeiro visualmente (criação instantânea de jogador, depósito com normalização decimal, apostas `BET`, prêmios `WIN`, `LOSS`, estornos `REFUND`, `ROLLBACK` técnico e reconciliação contábil do ledger com tolerância zero).
+   > O simulador inclui um **Laboratório de Demonstração em 1 Clique** cobrindo os cenários mais críticos do desafio Jungle Gaming:
+   > * ⚡ **Cenário 1 (Hot-Wallet 100/80/80 — Seção 8):** Disparo concorrente de duas apostas de R$ 80 em saldo de R$ 100 (1 aprovada, 1 rejeitada por `INSUFFICIENT_FUNDS`, saldo final R$ 20).
+   > * 🔁 **Cenário 2 (Tempestade de Replays — Seção 7):** 10 requisições simultâneas com a mesma `Idempotency-Key` (1 criação 201 e 9 replays 200 OK sem débito duplicado).
+   > * 💥 **Cenário 3 (Conflito de Idempotência 409 — Seção 6.3):** Mesma chave com payload divergente bloqueada imediatamente com 409 Conflict via hash SHA-256.
+   > * ⏳ **Cenário 4 (Ordem Invertida / Pending Reference — Seção 7.1):** Envio de `WIN` antes da `BET` com retenção em `202 Accepted` (`PENDING_REFERENCE`) e resolução automática pós-chegada da aposta.
 
    #### 🕹️ Ordem de Execução Recomendada (Passo a Passo Interativo):
    1. **`POST /wallets`**: Crie uma carteira informando um `playerId` (UUID válido, ex.: `a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11`), moeda `currency: "BRL"` e saldo inicial `initialBalance: "20.00"`. Copie o `id` da carteira retornado.
@@ -81,6 +92,7 @@ Antes de iniciar, certifique-se de ter instalado em sua máquina:
 | `GET` | `/providers/:providerId/wagering/transactions/:externalTransactionId` | Não | Rota canônica Jungle Gaming de consulta por provedor e ID externo (alias legado: `/transactions/external/:providerId/:externalId`) |
 | `GET` | `/health/live` | Não | Liveness probe do serviço HTTP |
 | `GET` | `/metrics` / `/dashboard` | Não | Painel de telemetria e métricas Prometheus / HTML em tempo real |
+| `GET` | `/simulator` *(alias: `/playground`)* | Não | Simulador visual interativo de jogador, carteira, ledger ao vivo e laboratório de concorrência |
 | `GET` | `/docs` | Não | Documentação interativa moderna da API com console de testes |
 | `GET` | `/api/docs` | Não | Swagger UI OpenAPI 3.0 |
 
@@ -206,42 +218,123 @@ Com o PostgreSQL ativo via Docker, conecte-se utilizando:
 
 ## 💻 Como Rodar o Projeto
 
-### Opção 1: Desenvolvimento Local
+O projeto oferece suporte de primeira classe a dois modos de execução: **100% via Docker** (Zero-Click, sem depender do runtime da máquina host) ou **via comando Bun diretamente no Host** (desenvolvimento ágil com live-reload):
 
-1. **Inicie o servidor da aplicação:**
+---
+
+### Opção A: Tudo via Docker (Recomendado / Zero-Click)
+
+Nesta opção, **absolutamente tudo** (PostgreSQL, LocalStack SQS, Migrations automáticas e a Aplicação) roda em containers Docker isolados com 1 único comando:
+
+1. **Subir toda a aplicação e infraestrutura:**
+   ```bash
+   bun run docker:up
+   # ou diretamente com rebuild:
+   docker compose up -d --build
+   ```
+   * **Fluxo 100% Automático:** O Docker Compose aguarda o PostgreSQL ficar saudável (`pg_isready`), executa o container `migration` automaticamente (`bun run migration:up`), e somente após a conclusão com sucesso das migrations inicializa o container `app`.
+   * **Persistência de Dados:** O banco utiliza o volume `postgres_data`, preservando tabelas e saldos entre reinicializações.
+   * **Porta Exposta:** A aplicação estará disponível imediatamente em [http://localhost:3000](http://localhost:3000).
+
+2. **Derrubar os containers mantendo os dados salvos:**
+   ```bash
+   bun run docker:down
+   # ou:
+   docker compose down
+   ```
+
+3. **(Opcional) Reset total com limpeza de banco/volumes:**
+   ```bash
+   docker compose down -v
+   ```
+
+4. **Executar a suíte de testes completa dentro do Docker:**
+   ```bash
+   bun run docker:test
+   # ou diretamente via docker compose:
+   docker compose run --rm test
+   ```
+
+5. **Executar o teste de carga / benchmarks dentro do Docker:**
+   ```bash
+   bun run docker:load
+   # ou:
+   docker compose run --rm test bun run test:load --quick
+   ```
+
+---
+
+### Opção B: Desenvolvimento Local via Comando Bun (Host)
+
+Nesta opção, a aplicação roda nativamente no seu terminal com live-reload (`--watch`), utilizando o Docker apenas para os serviços de infraestrutura (Postgres e LocalStack):
+
+1. **Subir a infraestrutura de apoio no Docker:**
+   ```bash
+   bun run docker:infra
+   # ou diretamente:
+   docker compose up -d postgres localstack
+   ```
+   * **PostgreSQL:** Porta `5432` (`wager:wager`, banco `wager`).
+   * **LocalStack:** Porta `4566` (filas FIFO e DLQ provisionadas automaticamente).
+
+2. **Aplicar as migrations no banco (caso o banco seja novo):**
+   ```bash
+   bun run migration:up
+   ```
+
+3. **Iniciar a aplicação no host (com watch/live-reload):**
    ```bash
    bun run dev
    ```
    *A aplicação iniciará na porta `3000` (definida via `PORT` no `.env`).*
 
-2. **Verifique se o serviço está ativo:**
-   Em outro terminal, execute:
+4. **Verificar se o serviço está ativo:**
    ```bash
    curl http://localhost:3000/health/live
+   # Resposta esperada: {"status":"ok"}
    ```
-   **Resposta esperada:**
-   ```json
-   {"status":"ok"}
+
+5. **Executar testes no host:**
+   ```bash
+   bun run test:all
+   # ou com o pipeline rigoroso de qualidade (lint + typecheck + testes):
+   bun run check
+   ```
+
+6. **Executar teste de carga no host:**
+   ```bash
+   bun run test:load --quick
    ```
 
 ---
 
-### Opção 2: Subindo a Infraestrutura com Docker
+### 📊 Guia Rápido de Comandos: Docker vs Bun
 
-Para subir o banco de dados e os serviços de fila locais:
+| Tarefa / Operação | 🐳 Via Docker (Container) | ⚡ Via Bun (Host) |
+| :--- | :--- | :--- |
+| **Subir Aplicação Completa** | `bun run docker:up` *(ou `docker compose up -d --build`)* | `bun run dev` *(requer `bun run docker:infra`)* |
+| **Parar Aplicação** | `bun run docker:down` *(ou `docker compose down`)* | `Ctrl + C` no terminal |
+| **Aplicar Migrations** | Automático no `docker:up` *(ou `docker compose run --rm migration`)* | `bun run migration:up` |
+| **Reverter Migrations** | `docker compose run --rm migration bun run scripts/migrate.ts down` | `bun run migration:down` |
+| **Executar Suíte de Testes** | `bun run docker:test` *(ou `docker compose run --rm test`)* | `bun run test:all` |
+| **Pipeline Completo (Check)** | `bun run docker:check` | `bun run check` |
+| **Teste de Carga (Benchmark)** | `bun run docker:load` | `bun run test:load --quick` |
+| **Rebuild de Imagens / Deps** | `bun run docker:build` *(ou `docker compose build`)* | `bun install` |
 
-1. **Subir apenas Postgres e LocalStack:**
-   ```bash
-   docker compose up -d postgres localstack
-   ```
-   * **PostgreSQL:** Porta `5432` (`wager:wager`, banco `wager`).
-   * **LocalStack:** Porta `4566` (com filas FIFO `wager-transactions.fifo`, `wallet-events.fifo` e a DLQ `wager-transactions-dlq.fifo` criadas automaticamente).
+---
 
-2. **Subir toda a aplicação (Postgres + LocalStack + 3 réplicas do App):**
-   ```bash
-   docker compose up --build
-   ```
-   * As réplicas do app serão expostas nas portas `3000`, `3001` e `3002`.
+### 🧪 Como funcionam os Testes com Docker?
+
+O projeto oferece suporte de primeira classe a **duas estratégias de teste**, ambas com 100% de cobertura e aprovação:
+
+| Estratégia | Como Executar | Quando Usar | Vantagens |
+| :--- | :--- | :--- | :--- |
+| **Infra no Docker + Testes no Host** *(Recomendado para Dev)* | `bun run docker:infra`<br>`bun run test:all` | Desenvolvimento ativo local | Feedback instantâneo (~400ms unitários, ~15s pipeline completa), sem rebuild de imagem, facilidade de debugging no editor. |
+| **Tudo no Docker (Container de Teste)** *(Recomendado para CI/CD)* | `bun run docker:test`<br>`docker compose run --rm test` | Validação antes de push e pipelines CI/CD | Paridade 100% com ambiente de produção Linux, isolamento completo de dependências do host, sem necessidade de Bun instalado na máquina. |
+
+> **Nota Técnica sobre Multi-Instância:** Os testes de multi-instância (`test/multi-instance`) realizam `Bun.spawn` de múltiplos processos em paralelo, alocando portas dinâmicas e simulando crashes via `SIGTERM`/`SIGKILL`. Esse mecanismo funciona perfeitamente **tanto no host quanto dentro do container Docker**, pois os processos filhos compartilham o network namespace do container e utilizam o loopback `127.0.0.1` internamente enquanto comunicam com `postgres:5432` e `localstack:4566`.
+
+
 
 ---
 
@@ -259,7 +352,7 @@ src/
 │   └── errors/              # Catálogo de FailureCode e erros de domínio
 ├── application/             # Casos de uso e portas de entrada/saída (Hexagonal)
 ├── infrastructure/          # Config, MikroORM, Postgres, SQS e Observabilidade
-├── interfaces/              # Controllers HTTP, Consumers SQS e Workers
+├── interfaces/              # Controllers HTTP, Consumers SQS, Workers e Views SSR (/docs, /dashboard, /simulator)
 └── main.ts                  # Ponto de entrada do NestJS com seleção de APP_ROLE
 
 test/

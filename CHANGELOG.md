@@ -7,6 +7,49 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [0.13.0] - 19-10-2026
+
+### Resumo Executivo
+
+A versão 0.13.0 traz uma experiência de inicialização e execução totalmente automatizada e simplificada em um único comando ("Zero-Click"). Agora, o sistema pode ser executado instantaneamente em qualquer computador ou servidor com isolamento completo, sem a necessidade de instalar manualmente ferramentas de desenvolvimento ou realizar configurações manuais de banco de dados e filas.
+
+Toda a preparação inicial do banco de dados e os serviços de apoio são configurados e validados automaticamente nos bastidores antes que a aplicação receba qualquer operação financeira. Além disso, os operadores e equipes de suporte passam a contar com validações automatizadas de integridade e estabilidade que podem ser disparadas de forma isolada, garantindo total segurança, preservação contínua de saldos e prontidão para processamento financeiro contínuo.
+
+### ✨ Adicionado
+- **Containerização Completa e Execução "Zero-Click" via Docker Compose:**
+  - Orquestração completa de ponta a ponta (`docker compose up -d --build` ou `bun run docker:up`) inicializando PostgreSQL, LocalStack (filas FIFO SQS e DLQ), migrations e a aplicação.
+  - Execução automatizada de migrações (`migration`) no boot com condição de dependência estrita (`service_completed_successfully`), garantindo que todas as tabelas contábeis, índices e triggers de auditoria imutável estejam ativas antes do tráfego.
+  - Configuração de volume persistente nomeado (`postgres_data`) para o PostgreSQL, mantendo carteiras, transações e saldo preservados entre reinicializações.
+  - Configuração simplificada da aplicação em 1 réplica principal expondo exclusivamente a porta `3000:3000`.
+- **Ambiente Isolado de Testes e Validação Contínua em Container:**
+  - Perfil de serviço `test` (`profiles: ["test"]`) no `docker-compose.yml`, permitindo rodar a suíte completa de 157 testes (`bun run docker:test`) ou testes de estresse/carga (`bun run docker:load`) 100% dentro do Docker.
+  - Suporte completo a testes de concorrência massiva, multi-instância e failover (`Bun.spawn`) dentro do container Linux compartilhado.
+- **Isolamento de Contexto de Construção com [.dockerignore](.dockerignore):**
+  - Exclusão explícita de `node_modules` locais (macOS Darwin), logs, pastas de cache e git, acelerando drasticamente o build e eliminando conflitos de binários nativos.
+- **Novos Atalhos Operacionais no [package.json](package.json):**
+  - Scripts dedicados adicionados: `docker:infra`, `docker:up`, `docker:down`, `docker:test`, `docker:check`, `docker:load` e `docker:build`.
+
+### 🔄 Modificado
+- **Healthcheck Nativo no Container:** Implementado probe via `bun` avaliando `/health/ready` periodicamente a cada 5s sem necessidade de utilitários externos (como curl).
+- **Documentação de Modos de Execução no [README.md](README.md):** Reestruturação completa da seção "Como Rodar o Projeto" apresentando tanto o modo 100% Docker (Zero-Click) quanto o modo nativo Bun no Host, com tabela comparativa de comandos e detalhamento de estratégias de teste.
+- **Elevação de Versão SemVer:** Bump de versão para `0.13.0` no [package.json](package.json).
+
+### 🐛 Corrigido
+- **Prevenção de Contaminação de Dependências:** Eliminação do risco de cópia de binários da máquina host para o container Linux através do [.dockerignore](.dockerignore).
+- **Tratamento de Inicialização em Banco Limpo:** Eliminação de erros de `relation does not exist` na subida de containers Postgres novos através da execução automatizada pré-boot do serviço `migration`.
+
+### 🧪 Sugestões de Testes
+- Subir toda a aplicação via Docker: `bun run docker:up` (ou `docker compose up -d --build`).
+- Verificar no Docker Desktop que `postgres`, `localstack` e `app` estão saudáveis e `migration` finalizou com sucesso (`exit 0`).
+- Acessar o Portal e Simulador em [http://localhost:3000](http://localhost:3000).
+- Executar a suíte de testes dentro do Docker: `bun run docker:test`.
+- Executar o teste de carga rápido: `bun run docker:load`.
+- Derrubar os containers mantendo os dados salvos: `bun run docker:down`.
+
+📄 [Notas detalhadas da versão](./docs/releases/00.13/00.13.00.md)
+
+---
+
 ## [0.12.0] - 19-10-2026
 
 ### Resumo Executivo
