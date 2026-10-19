@@ -32,20 +32,18 @@ O **Resumo Executivo** é o texto **para usuários finais** (quem usa o aplicati
 ## Passos
 
 1. **Organizar especificações executadas**:
-   - Verifique quais arquivos de especificação (arquivos `.md` localizados na raiz do diretório [docs/](file:///Users/guilherme/testes/app_farm_aura/docs)) possuem a marcação `# SPEC EXECUTADA` ou o status `Status | Concluído` em seu conteúdo.
+   - Verifique quais arquivos de especificação (arquivos `.md` localizados na raiz do diretório [docs/](file:///Users/guilherme/testes/jungle_gaming_test/docs)) possuem a marcação `# SPEC EXECUTADA` ou o status `Status | Concluído` em seu conteúdo.
    - Mova esses arquivos para dentro da pasta `docs/executed/`. Crie a pasta `docs/executed/` caso ela não exista.
 
 2. **Pergunte** o nome da branch de destino (a branch para comparar, ex.: `main` ou `develop`).
 
-3. **Obtenha a versão atual** lendo obrigatoriamente o campo `"version"` nos dois arquivos da aplicação:
-   - [client/package.json](file:///Users/guilherme/testes/app_farm_aura/client/package.json)
-   - [server/package.json](file:///Users/guilherme/testes/app_farm_aura/server/package.json)
-   - **Regra Obrigatória**: As versões do `client` e do `server` devem **sempre andar juntas e ser atualizadas juntas**. Caso haja qualquer divergência entre elas, utilize a versão maior como base para o incremento.
+3. **Obtenha a versão atual** lendo o campo `"version"` no arquivo da aplicação:
+   - [package.json](file:///Users/guilherme/testes/jungle_gaming_test/package.json)
+   - Caso o projeto utilize submódulos com versões sincronizadas, leia e sincronize os respectivos `package.json`.
 
-4. **Pergunte ao usuário o novo número de versão** para a release (sugira as opções de incremento `patch`, `minor` ou `major` com base na versão atual sincronizada).
-   - Após a confirmação do usuário, **atualize o campo `"version"` simultaneamente** nos dois arquivos:
-     - [client/package.json](file:///Users/guilherme/testes/app_farm_aura/client/package.json)
-     - [server/package.json](file:///Users/guilherme/testes/app_farm_aura/server/package.json)
+4. **Pergunte ao usuário o novo número de versão** para a release (sugira as opções de incremento `patch`, `minor` ou `major` com base na versão atual).
+   - Após a confirmação do usuário, **atualize o campo `"version"`** no:
+     - [package.json](file:///Users/guilherme/testes/jungle_gaming_test/package.json)
 
 5. **Decomponha e formate** a versão confirmada em `major`, `minor` e `patch`:
    - Formate com **2 dígitos** em cada parte numérica (equivalente a `sprintf("%02d.%02d.%02d", major, minor, patch)`):

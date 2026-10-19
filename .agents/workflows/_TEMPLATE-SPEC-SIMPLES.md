@@ -1,13 +1,13 @@
 # 📄 [Título da Spec]
 
-> **Template simples e objetivo** para especificações curtas, correções, novos recursos e ajustes localizados para o projeto **Farmar Aura**.
+> **Template simples e objetivo** para especificações curtas, correções, novos recursos e ajustes localizados.
 
 ---
 
 ## 📌 Metadados
 
 | Campo | Valor |
-|-------|-------|
+|---|---|
 | **Versão** | v1.0 |
 | **Data** | DD/MM/YYYY |
 | **Autor** | Desenvolvedor |
@@ -23,7 +23,7 @@
 > o que será feito, por que isso é necessário e qual o resultado esperado.
 
 <!-- Exemplo:
-Exibir o nível e o título do jogador no Ranking Global de Aura (Leaderboard). A mudança melhora o engajamento visual do jogador ao comparar sua evolução e ranking com outros participantes do jogo.
+Adicionar validação de saldo no momento do registro da aposta para evitar operações com fundos insuficientes. A mudança garante a integridade contábil da carteira antes de despachar eventos para a fila de processamento assíncrono.
 -->
 
 ---
@@ -59,8 +59,8 @@ Exibir o nível e o título do jogador no Ranking Global de Aura (Leaderboard). 
 3. Resultado esperado
 
 ### Fluxos Alternativos `[opcional]`
-- Se o servidor estiver indisponível, o app deve...
-- Se os dados de bônus expirarem, o app deve...
+- Se o serviço dependente estiver indisponível, o sistema deve...
+- Se o identificador de idempotência já existir, o sistema deve...
 
 ---
 
@@ -72,16 +72,16 @@ Exibir o nível e o título do jogador no Ranking Global de Aura (Leaderboard). 
 - Regra 3
 
 ### Restrições Técnicas / Funcionais
-- Manter compatibilidade com a sincronização automática via API Express (`/api/score/sync`)
-- Garantir responsividade da interface no React (mobile e desktop)
-- Manter o cálculo de nível sincronizado com os intervalos de Aura definidos
-- Não quebrar a persistência local em `localStorage`
+- Respeitar invariantes contábeis e uso obrigatório de tipos `Money` (sem `float` ou `number` em campos financeiros)
+- Garantir isolamento transacional com lock pessimista (`SELECT ... FOR UPDATE`) onde aplicável
+- Preservar idempotência de ponta a ponta e persistência de histórico
+- Manter cobertura de testes unitários e de integração
 
 ---
 
 ## ✅ Critérios de Aceite
 
-<!-- Prefira o formato: "Quando [condição], o app deve [comportamento]" -->
+<!-- Prefira o formato: "Quando [condição], o sistema deve [comportamento]" -->
 - [ ] Critério 1
 - [ ] Critério 2
 - [ ] Critério 3
@@ -91,26 +91,19 @@ Exibir o nível e o título do jogador no Ranking Global de Aura (Leaderboard). 
 ## 🧩 Impacto Técnico
 
 ### Módulos / Camadas Impactadas
-- Frontend (React / Vite / TailwindCSS / Lucide-React)
-- Backend (Node.js / Express API)
-- Banco de Dados (MySQL / Tabela `users`)
-- Estado Local (`localStorage` / Hooks React)
+- Domínio (`src/domain/`)
+- Casos de Uso / Aplicação (`src/application/`)
+- Persistência / Banco de Dados (`src/infrastructure/persistence/`)
+- Mensageria / Workers (`src/infrastructure/messaging/`)
+- Interfaces HTTP / Controladores (`src/interfaces/http/`)
 
 ### Arquivos ou Áreas Prováveis `[opcional]`
-- `client/src/App.jsx`
-- `client/src/components/AuraButton.jsx`
-- `client/src/components/LeaderboardModal.jsx`
-- `client/src/components/UpgradesShop.jsx`
-- `client/src/components/NicknameModal.jsx`
-- `client/src/utils/levels.js`
-- `client/src/utils/audio.js`
-- `server/index.js`
-- `server/config/db.js`
+- `src/domain/entities/...`
+- `src/application/use-cases/...`
+- `src/interfaces/http/controllers/...`
 
 ### Dependências `[opcional]`
-- `canvas-confetti`
-- `lucide-react`
-- `mysql2`
+- [Novas bibliotecas ou dependências externas, se houver]
 
 ---
 
@@ -131,8 +124,8 @@ Exibir o nível e o título do jogador no Ranking Global de Aura (Leaderboard). 
 ## 🧪 Testes Esperados
 
 - [ ] Cenário principal com sucesso
-- [ ] Cenário de erro de conexão com a API backend
-- [ ] Caso de borda (ex: transição de nível no limiar de pontos)
+- [ ] Cenário de erro ou exceção de negócio
+- [ ] Caso de borda ou concorrência simultânea
 
 ---
 
@@ -143,7 +136,7 @@ Exibir o nível e o título do jogador no Ranking Global de Aura (Leaderboard). 
 
 ### O que a IA deve entregar
 - Código implementado e funcional
-- Validação e testes executados
+- Validação e testes automatizados executados com sucesso
 - Resumo claro das alterações efetuadas
 
 ### Observações específicas desta spec `[opcional]`
@@ -151,7 +144,7 @@ Exibir o nível e o título do jogador no Ranking Global de Aura (Leaderboard). 
 
 ---
 
-## ✍️ Rascunho mínimo aceito
+## ✍️ Rascunho Mínimo Aceito
 
 > Se estiver com pressa, preencha pelo menos:
 
@@ -165,4 +158,6 @@ Exibir o nível e o título do jogador no Ranking Global de Aura (Leaderboard). 
 
 ## 📁 Pós-execução da Spec
 
-Quando o usuário pedir para executar uma spec, assim que todas as instruções da spec em questão forem concluídas, mova o arquivo da spec para a pasta `docs/executed/`.
+Quando a implementação da spec for concluída e todos os testes estiverem aprovados:
+1. Marque `# SPEC EXECUTADA` ou altere o status dos metadados para `Status | Concluído`.
+2. Mova o arquivo da spec para a pasta `docs/executed/`.
