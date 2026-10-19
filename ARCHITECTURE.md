@@ -1,6 +1,8 @@
 # 🏛️ Arquitetura do Distributed Wagering Processor
 
 > Documento técnico de referência do sistema **Distributed Wagering Processor**, especificando princípios de design, decisões contábeis, estratégias de concorrência, tolerância a falhas multi-instância, mensageria e o desenho de integração com provedores de identidade.
+> 
+> 🧠 **Registro Aprofundado de Decisões (ADR):** Para aprofundamento detalhado em cada decisão estrutural, alternativas descartadas e justificativas contábeis, consulte [**`docs/TECHNICAL_DECISIONS.md`**](docs/TECHNICAL_DECISIONS.md).
 
 ---
 

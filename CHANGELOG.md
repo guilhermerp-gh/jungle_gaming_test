@@ -7,6 +7,54 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [0.13.1] - 19-10-2026
+
+### Resumo Executivo
+
+A versão 0.13.1 introduz uma documentação oficial completa e transparente que detalha como a plataforma garante a integridade financeira, a segurança do dinheiro dos jogadores e a estabilidade contínua das operações. Os operadores, auditores e parceiros passam a ter acesso a um registro aberto e estruturado de todas as decisões que blindam o sistema contra perdas financeiras, cobranças indevidas ou instabilidades durante picos de acesso.
+
+Além disso, foram atualizados todos os manuais operacionais e guias de referência do sistema, facilitando a navegação pelas regras de negócio, esclarecendo a proteção contra concorrência e comprovando a cobertura de 157 testes automatizados que asseguram que cada aposta, depósito e premiação sejam processados com exatidão matemática irrestrita.
+
+### ✨ Adicionado
+- **Compêndio de Decisões Técnicas & Arquiteturais ([docs/TECHNICAL_DECISIONS.md](file:///Users/guilherme/testes/jungle_gaming_test/docs/TECHNICAL_DECISIONS.md)):**
+  - Registro de 15 Architecture Decision Records (ADRs) detalhando o racional, alternativas descartadas e trade-offs do sistema:
+    - `ADR-001`: Runtime Bun & Engine JavaScriptCore vs. Node.js vs. Deno.
+    - `ADR-002`: Clean Architecture / Hexagonal com NestJS desacoplado do domínio.
+    - `ADR-003`: Aritmética financeira sem ponto flutuante com Value Object `Money` e AST Linting.
+    - `ADR-004`: Modelo contábil híbrido (Saldo materializado + Ledger imutável + Triggers SQL).
+    - `ADR-005`: Reconciliação contábil em tempo real com política de não-autocorreção.
+    - `ADR-006`: Concorrência e hot-wallets via lock pessimista por linha (`FOR UPDATE`).
+    - `ADR-007`: Idempotência persistente de dois níveis com hash canônico SHA-256 e dual-compatibility.
+    - `ADR-008`: Mensageria egress via Transactional Outbox Pattern com lease e `SKIP LOCKED`.
+    - `ADR-009`: Consumo SQS FIFO com Inbox Pattern e deduplicação atômica.
+    - `ADR-010`: Tolerância a eventos fora de ordem (`PENDING_REFERENCE`) com fast-path e backoff com jitter.
+    - `ADR-011`: Topologia de binário único com especialização de papéis (`APP_ROLE`).
+    - `ADR-012`: Observabilidade com OpenMetrics/Prometheus, logs Pino e `AsyncLocalStorage`.
+    - `ADR-013`: Conformidade de contrato & compatibilidade dupla (Dual-Compatibility).
+    - `ADR-014`: Isolamento de carga: separação OLTP vs. OLAP para produção de alta escala.
+    - `ADR-015`: Pirâmide de testes fail-fast com multi-instância real (`Bun.spawn`) e testes de carga.
+  - Matriz comparativa de decisões técnicas e catálogo de justificativas contábeis.
+
+### 🔄 Modificado
+- **Revisão e Aprimoramento do [README.md](file:///Users/guilherme/testes/jungle_gaming_test/README.md):**
+  - Inclusão de link destacado para o compêndio de ADRs.
+  - Atualização dos quantitativos de testes automatizados refletindo os 157 testes (84 unitários, 57 de integração, 9 de concorrência e 7 multi-instância).
+  - Melhoria nas instruções de navegação rápida para execução via Docker.
+- **Atualização do [ARCHITECTURE.md](file:///Users/guilherme/testes/jungle_gaming_test/ARCHITECTURE.md):** Inclusão de aviso com link direto para consulta aos ADRs em `docs/TECHNICAL_DECISIONS.md`.
+- **Elevação de Versão SemVer:** Atualização da versão para `0.13.1` no [package.json](file:///Users/guilherme/testes/jungle_gaming_test/package.json).
+
+### 🐛 Corrigido
+- **Sincronização de Estatísticas da Documentação:** Harmonização dos números de asserções e testes no README com as execuções reais das suítes de teste.
+
+### 🧪 Sugestões de Testes
+- Validar os links cruzados da documentação entre README, ARCHITECTURE e TECHNICAL_DECISIONS.
+- Executar a suíte de verificação completa: `bun run check`.
+- Executar os testes de carga e estabilidade: `bun run test:load --quick`.
+
+📄 [Notas detalhadas da versão](./docs/releases/00.13/00.13.01.md)
+
+---
+
 ## [0.13.0] - 19-10-2026
 
 ### Resumo Executivo

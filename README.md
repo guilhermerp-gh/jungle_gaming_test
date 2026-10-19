@@ -4,13 +4,14 @@ Serviço financeiro distribuído de processamento de apostas (`BET`, `WIN`, `LOS
 
 > 📖 **Documentação Técnica & Arquitetura Completa:**
 > * 🏛️ [**`ARCHITECTURE.md`**](ARCHITECTURE.md): Princípios de Clean Architecture, modelo contábil sem float, estratégias contra hot-wallets, outbox/inbox e autenticação Keycloak/OIDC.
+> * 🧠 [**`docs/TECHNICAL_DECISIONS.md`**](docs/TECHNICAL_DECISIONS.md): Registro Aprofundado de Decisões Técnicas e Arquiteturais (ADR Compendium detalhado com 15 decisões estruturais, alternativas descartadas e trade-offs).
 > * 🧪 [**`docs/TESTING.md`**](docs/TESTING.md): Guia Completo de Testes (manual da pirâmide fail-fast, concorrência, multi-instância e suíte de carga Fase 10).
 > * 📊 [**`docs/BENCHMARKS.md`**](docs/BENCHMARKS.md): Relatório de benchmarks de performance (p50/p90/p95/p99), vazão (até 1.000 RPS) e resiliência sob carga da Fase 10.
 > * 🗄️ [**`docs/DATABASE_SCHEMA.md`**](docs/DATABASE_SCHEMA.md): Diagrama Entidade-Relacionamento (ERD), catálogo de tabelas, dicionário de dados, constraints financeiras e triggers no PostgreSQL.
 
 ---
 
-## Caso queira rodar o projeto todo via docker ir para a linha 219 desse arquivo
+> 💡 **Execução Rápida via Docker:** Para iniciar todo o ambiente de forma 100% automatizada e isolada (PostgreSQL, LocalStack, Migrations e Aplicação) com um único comando, consulte a seção [Como Rodar o Projeto via Docker (#opção-a-tudo-via-docker-recomendado--zero-click)](#opção-a-tudo-via-docker-recomendado--zero-click).
 
 ## 📋 Pré-requisitos
 
@@ -129,7 +130,7 @@ Os logs da aplicação são emitidos em formato JSON no `stdout`, incluindo sist
 O projeto conta com validações estritas de tipagem, regras financeiras e testes automatizados organizados em pirâmide fail-fast:
 
 ### 🚀 Validação Completa de Ponta a Ponta (Recomendado)
-Executa a validação completa em ordem Fail-Fast: **Lint Money $\rightarrow$ Typecheck $\rightarrow$ Todos os 142 Testes Automatizados**:
+Executa a validação completa em ordem Fail-Fast: **Lint Money $\rightarrow$ Typecheck $\rightarrow$ Todos os 157 Testes Automatizados**:
 ```bash
 bun run test:all
 ```
@@ -145,13 +146,13 @@ bun run test:all
   ```
 
 * **1. Testes de Integração (PostgreSQL Real, API HTTP, LocalStack SQS FIFO, Pending Reference Resolver e Observabilidade):**
-  Executa 50 testes cobrindo locks pessimistas (`SELECT ... FOR UPDATE`), triggers de imutabilidade do ledger, integridade de saldo, persistência de `DEPOSIT`, endpoints HTTP E2E (incluindo `POST /wallets/:id/deposit`), Transactional Outbox Publisher (`wallet-events.fifo`), SQS Consumer Worker com Inbox Pattern (`wager-transactions.fifo`, deduplicação atômica, poison pill com DLQ e graceful shutdown), o **Pending Reference Resolver** (resolução fora de ordem de `WIN` e `REFUND` que chegam antes da `BET`, múltiplos resolvers em paralelo com `FOR UPDATE SKIP LOCKED`, expiração de pendências e proteção contra dupla reversão `ALREADY_REVERSED`) e a suíte de **Observabilidade** (endpoint `/metrics` no padrão Prometheus text, propagação de `X-Correlation-Id`, incrementos de `wager_transactions_total`, `idempotent_replays_total`, `lock_conflicts_total` e `reconciliation_mismatch_total`):
+  Executa 57 testes cobrindo locks pessimistas (`SELECT ... FOR UPDATE`), triggers de imutabilidade do ledger, integridade de saldo, persistência de `DEPOSIT`, endpoints HTTP E2E (incluindo `POST /wallets/:id/deposit`), Transactional Outbox Publisher (`wallet-events.fifo`), SQS Consumer Worker com Inbox Pattern (`wager-transactions.fifo`, deduplicação atômica, poison pill com DLQ e graceful shutdown), o **Pending Reference Resolver** (resolução fora de ordem de `WIN` e `REFUND` que chegam antes da `BET`, múltiplos resolvers em paralelo com `FOR UPDATE SKIP LOCKED`, expiração de pendências e proteção contra dupla reversão `ALREADY_REVERSED`) e a suíte de **Observabilidade** (endpoint `/metrics` no padrão Prometheus text, propagação de `X-Correlation-Id`, incrementos de `wager_transactions_total`, `idempotent_replays_total`, `lock_conflicts_total` e `reconciliation_mismatch_total`):
   ```bash
   bun run test:integration
   ```
 
 * **2. Testes de Alta Concorrência e Idempotência Massiva (Fase 4):**
-  Executa 9 testes de estresse (340 asserções) cobrindo cenário 100/80/80, tempestade de idempotência (50x a 100x requisições simultâneas com a mesma chave), esgotamento de saldo (*hot wallet* com 100 threads), concorrência mista (BETs + WINs), isolamento em múltiplas carteiras sem deadlocks e concorrência/replay storms de depósitos via `POST /wallets/:id/deposit`:
+  Executa 9 testes de estresse (311 asserções) cobrindo cenário 100/80/80, tempestade de idempotência (50x a 100x requisições simultâneas com a mesma chave), esgotamento de saldo (*hot wallet* com 100 threads), concorrência mista (BETs + WINs), isolamento em múltiplas carteiras sem deadlocks e concorrência/replay storms de depósitos via `POST /wallets/:id/deposit`:
   ```bash
   bun run test:concurrency
   ```
@@ -163,7 +164,7 @@ bun run test:all
   ```
 
 * **4. Testes Unitários de Domínio, Casos de Uso, Mensageria, Consumers, Resolvers e Observabilidade:**
-  Executa 76 testes de regras de negócio (`WageringPolicy` para `DEPOSIT`, `BET`, `WIN`, `LOSS`, `REFUND`, `ROLLBACK`), casos de uso de aplicação (incluindo `DepositUseCase`), máquina de estados das transações, publicador SQS FIFO, consumidor SQS com Inbox Pattern e DLQ, worker e use case de resolução de pendências de referência com backoff exponencial e jitter, expiração por 10 tentativas / TTL de 15 minutos, métricas do Prometheus (`WageringMetrics`), rastreamento com `CorrelationContext` e aritmética do objeto `Money`:
+  Executa 84 testes de regras de negócio (`WageringPolicy` para `DEPOSIT`, `BET`, `WIN`, `LOSS`, `REFUND`, `ROLLBACK`), casos de uso de aplicação (incluindo `DepositUseCase`), máquina de estados das transações, publicador SQS FIFO, consumidor SQS com Inbox Pattern e DLQ, worker e use case de resolução de pendências de referência com backoff exponencial e jitter, expiração por 10 tentativas / TTL de 15 minutos, métricas do Prometheus (`WageringMetrics`), rastreamento com `CorrelationContext` e aritmética do objeto `Money`:
   ```bash
   bun run test
   ```
@@ -356,8 +357,8 @@ src/
 └── main.ts                  # Ponto de entrada do NestJS com seleção de APP_ROLE
 
 test/
-├── unit/                    # Testes unitários de domínio e aplicação (76 testes)
-├── integration/             # Testes de integração Postgres, HTTP, SQS e Resolver (50 testes)
+├── unit/                    # Testes unitários de domínio e aplicação (84 testes)
+├── integration/             # Testes de integração Postgres, HTTP, SQS e Resolver (57 testes)
 ├── concurrency/             # Testes de alta concorrência e estresse (9 testes)
 ├── multi-instance/          # Testes multi-instância e recuperação distribuída (7 testes)
 ├── fixtures/                # Fixtures para testes de falha determinísticos
