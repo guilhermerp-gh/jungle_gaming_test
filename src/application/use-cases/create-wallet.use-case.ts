@@ -7,11 +7,18 @@ import { Money } from "../../domain/money/money";
 import { computePayloadHash } from "../../domain/wagering/payload-hash";
 import { WagerTransaction } from "../../domain/wagering/wager-transaction";
 import { Wallet } from "../../domain/wallet/wallet";
+import {
+  defaultWageringMetrics,
+  type WageringMetrics,
+} from "../../infrastructure/observability/wagering-metrics";
 import type { CreateWalletDto, WalletResponseDto } from "../dto/wallet.dto";
 import type { UnitOfWork } from "../ports/unit-of-work.port";
 
 export class CreateWalletUseCase {
-  constructor(private readonly uow: UnitOfWork) {}
+  constructor(
+    private readonly uow: UnitOfWork,
+    private readonly wageringMetrics: WageringMetrics = defaultWageringMetrics,
+  ) {}
 
   async execute(dto: CreateWalletDto): Promise<WalletResponseDto> {
     const now = new Date();
@@ -83,6 +90,7 @@ export class CreateWalletUseCase {
             version: wallet.version,
           });
           await repos.outbox.add(OutboxMessage.fromEvent(event));
+          this.wageringMetrics.recordTransaction("PROCESSED", "OPENING");
         }
 
         return {
@@ -98,16 +106,19 @@ export class CreateWalletUseCase {
     } catch (err: unknown) {
       const errorMsg = String((err as Error)?.message ?? "");
       const errorCode = String((err as Record<string, unknown>)?.code ?? "");
+
+      // Código 23505 = unique_violation no Postgres
       if (
         errorCode === "23505" ||
-        errorMsg.includes("ux_wallets_player_currency") ||
-        errorMsg.includes("unique constraint")
+        errorMsg.includes("unique constraint") ||
+        errorMsg.includes("duplicate key")
       ) {
         throw new DomainError(
           FailureCode.WALLET_ALREADY_EXISTS,
-          "Wallet already exists for this player and currency",
+          `Wallet already exists for playerId ${dto.playerId} and currency ${dto.currency}`,
         );
       }
+
       throw err;
     }
   }

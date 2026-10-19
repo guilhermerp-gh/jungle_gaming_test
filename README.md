@@ -2,6 +2,10 @@
 
 Serviço financeiro distribuído de processamento de apostas (`BET`, `WIN`, `LOSS`, `REFUND`, `ROLLBACK`, `DEPOSIT`) com ledger imutável, garantia de idempotência persistente, concorrência segura por carteira, arquitetura orientada a eventos (Transactional Outbox e Inbox Pattern via SQS FIFO) e tolerância a falhas multi-instância com recuperação automática de workers.
 
+> 📖 **Documentação Técnica & Arquitetura Completa:**
+> * 🏛️ [**`ARCHITECTURE.md`**](ARCHITECTURE.md): Princípios de Clean Architecture, modelo contábil sem float, estratégias contra hot-wallets, outbox/inbox e autenticação Keycloak/OIDC.
+> * 🗄️ [**`docs/DATABASE_SCHEMA.md`**](docs/DATABASE_SCHEMA.md): Diagrama Entidade-Relacionamento (ERD), catálogo de tabelas, dicionário de dados, constraints financeiras e triggers no PostgreSQL.
+
 ---
 
 ## 📋 Pré-requisitos
@@ -78,6 +82,30 @@ Antes de iniciar, certifique-se de ter instalado em sua máquina:
 | `GET` | `/docs` | Não | Documentação interativa moderna da API com console de testes |
 | `GET` | `/api/docs` | Não | Swagger UI OpenAPI 3.0 |
 
+> 💡 **Rastreabilidade de Ponta a Ponta:** Todos os endpoints suportam o header opcional `X-Correlation-Id`. Se omitido, a aplicação gera automaticamente um UUID v7 e o retorna no header da resposta, associando-o a toda a árvore de logs estruturados em JSON.
+
+---
+
+## 📊 Observabilidade, Métricas Prometheus & Logs
+
+### Métricas Padronizadas (`GET /metrics`)
+
+O serviço exporta métricas Prometheus oficiais para coletores e scrapers automáticos:
+
+* `wager_transactions_total{status, kind}`: Contagem de operações por status (`PROCESSED`, `REJECTED`, `PENDING_REFERENCE`, `FAILED`) e tipo (`BET`, `WIN`, `LOSS`, `REFUND`, `ROLLBACK`, `DEPOSIT`, `OPENING`).
+* `idempotent_replays_total{kind, source}`: Contagem de replays de idempotência atendidos sem efeito financeiro duplicado.
+* `retries_total{operation}`: Retentativas executadas por workers de outbox, resolver ou retries de concorrência.
+* `lock_conflicts_total{resource}`: Conflitos de lock pessimista mitigados na carteira (`ConcurrencyConflictError`).
+* `outbox_lag_seconds`: Gauge da defasagem temporal entre o evento não publicado mais antigo e o momento atual.
+* `processing_duration_seconds{operation, status}`: Histograma de latência das operações contábeis.
+* `reconciliation_mismatch_total`: Contador de inconsistências contábeis identificadas na reconciliação de carteiras.
+* `sqs_messages_consumed_total{consumer, status}`: Mensagens consumidas da fila SQS via Inbox Pattern.
+* `dlq_messages_total{consumer, reason}`: Mensagens inválidas/envenenadas encaminhadas para a DLQ.
+
+### Logs Estruturados JSON via Pino
+
+Os logs da aplicação são emitidos em formato JSON no `stdout`, incluindo sistematicamente `correlationId`, `instanceId`, `walletId`, `transactionId` e `providerId`, mantendo sanitização estrita para proteger payloads financeiros.
+
 ---
 
 ## 🧪 Como Rodar os Testes
@@ -85,7 +113,7 @@ Antes de iniciar, certifique-se de ter instalado em sua máquina:
 O projeto conta com validações estritas de tipagem, regras financeiras e testes automatizados organizados em pirâmide fail-fast:
 
 ### 🚀 Validação Completa de Ponta a Ponta (Recomendado)
-Executa a validação completa em ordem Fail-Fast: **Lint Money $\rightarrow$ Typecheck $\rightarrow$ Todos os 131 Testes Automatizados**:
+Executa a validação completa em ordem Fail-Fast: **Lint Money $\rightarrow$ Typecheck $\rightarrow$ Todos os 142 Testes Automatizados**:
 ```bash
 bun run test:all
 ```
@@ -100,8 +128,8 @@ bun run test:all
   bun run test:suites
   ```
 
-* **1. Testes de Integração (PostgreSQL Real, API HTTP, LocalStack SQS FIFO e Pending Reference Resolver):**
-  Executa 44 testes cobrindo locks pessimistas (`SELECT ... FOR UPDATE`), triggers de imutabilidade do ledger, integridade de saldo, persistência de `DEPOSIT`, endpoints HTTP E2E (incluindo `POST /wallets/:id/deposit`), Transactional Outbox Publisher (`wallet-events.fifo`), SQS Consumer Worker com Inbox Pattern (`wager-transactions.fifo`, deduplicação atômica, poison pill com DLQ e graceful shutdown) e o **Pending Reference Resolver** (resolução fora de ordem de `WIN` e `REFUND` que chegam antes da `BET`, múltiplos resolvers em paralelo com `FOR UPDATE SKIP LOCKED`, expiração de pendências e proteção contra dupla reversão `ALREADY_REVERSED`):
+* **1. Testes de Integração (PostgreSQL Real, API HTTP, LocalStack SQS FIFO, Pending Reference Resolver e Observabilidade):**
+  Executa 50 testes cobrindo locks pessimistas (`SELECT ... FOR UPDATE`), triggers de imutabilidade do ledger, integridade de saldo, persistência de `DEPOSIT`, endpoints HTTP E2E (incluindo `POST /wallets/:id/deposit`), Transactional Outbox Publisher (`wallet-events.fifo`), SQS Consumer Worker com Inbox Pattern (`wager-transactions.fifo`, deduplicação atômica, poison pill com DLQ e graceful shutdown), o **Pending Reference Resolver** (resolução fora de ordem de `WIN` e `REFUND` que chegam antes da `BET`, múltiplos resolvers em paralelo com `FOR UPDATE SKIP LOCKED`, expiração de pendências e proteção contra dupla reversão `ALREADY_REVERSED`) e a suíte de **Observabilidade** (endpoint `/metrics` no padrão Prometheus text, propagação de `X-Correlation-Id`, incrementos de `wager_transactions_total`, `idempotent_replays_total`, `lock_conflicts_total` e `reconciliation_mismatch_total`):
   ```bash
   bun run test:integration
   ```
@@ -118,8 +146,8 @@ bun run test:all
   bun run test:multi-instance
   ```
 
-* **4. Testes Unitários de Domínio, Casos de Uso, Mensageria, Consumers e Resolvers:**
-  Executa 65 testes de regras de negócio (`WageringPolicy` para `DEPOSIT`, `BET`, `WIN`, `LOSS`, `REFUND`, `ROLLBACK`), casos de uso de aplicação (incluindo `DepositUseCase`), máquina de estados das transações, publicador SQS FIFO, consumidor SQS com Inbox Pattern e DLQ, worker e use case de resolução de pendências de referência com backoff exponencial e jitter, expiração por 10 tentativas / TTL de 15 minutos e aritmética do objeto `Money`:
+* **4. Testes Unitários de Domínio, Casos de Uso, Mensageria, Consumers, Resolvers e Observabilidade:**
+  Executa 76 testes de regras de negócio (`WageringPolicy` para `DEPOSIT`, `BET`, `WIN`, `LOSS`, `REFUND`, `ROLLBACK`), casos de uso de aplicação (incluindo `DepositUseCase`), máquina de estados das transações, publicador SQS FIFO, consumidor SQS com Inbox Pattern e DLQ, worker e use case de resolução de pendências de referência com backoff exponencial e jitter, expiração por 10 tentativas / TTL de 15 minutos, métricas do Prometheus (`WageringMetrics`), rastreamento com `CorrelationContext` e aritmética do objeto `Money`:
   ```bash
   bun run test
   ```
@@ -224,8 +252,8 @@ src/
 └── main.ts                  # Ponto de entrada do NestJS com seleção de APP_ROLE
 
 test/
-├── unit/                    # Testes unitários de domínio e aplicação (65 testes)
-├── integration/             # Testes de integração Postgres, HTTP, SQS e Resolver (44 testes)
+├── unit/                    # Testes unitários de domínio e aplicação (76 testes)
+├── integration/             # Testes de integração Postgres, HTTP, SQS e Resolver (50 testes)
 ├── concurrency/             # Testes de alta concorrência e estresse (9 testes)
 ├── multi-instance/          # Testes multi-instância e recuperação distribuída (7 testes)
 ├── fixtures/                # Fixtures para testes de falha determinísticos

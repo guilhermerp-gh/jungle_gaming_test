@@ -1,0 +1,16 @@
+# Modo de Execução e Relatório de Tarefas
+
+Aplique este modo quando a tarefa envolver mais de um arquivo ou 3+ passos.
+Para perguntas simples ou ajustes pontuais, responda normalmente.
+
+## Regras
+1. NÃO crie arquivos de lista ou controle no projeto (TODO.md, PLAN.md etc.).
+2. Comece a resposta com o plano em checklist Markdown (- [ ]) no chat.
+3. Execute de forma iterativa. Se o plano mudar, avise e apresente a checklist atualizada.
+4. Não declare algo como feito ou testado sem ter de fato executado/verificado.
+
+## Resposta final (obrigatória)
+- **Resumo do que foi feito:** mudanças, arquivos alterados e verificações realizadas
+  (informe os comandos de teste rodados e o resultado; se não rodou nada, diga isso).
+- **Status das Tarefas:** checklist completa na mensagem. Use - [x] para o que foi
+  concluído e - [ ] para o que ficou pendente, com uma linha explicando o motivo.

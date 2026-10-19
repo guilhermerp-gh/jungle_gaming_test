@@ -1,7 +1,11 @@
+import { defaultOutboxMetrics, type OutboxMetrics } from "../../infrastructure/observability/outbox-metrics";
+import {
+  defaultWageringMetrics,
+  type WageringMetrics,
+} from "../../infrastructure/observability/wagering-metrics";
 import { waitForFailureInjection } from "../../infrastructure/testing/failure-injection";
 import type { MessagePublisherPort } from "../ports/message-publisher.port";
 import type { UnitOfWork } from "../ports/unit-of-work.port";
-import { defaultOutboxMetrics, type OutboxMetrics } from "../../infrastructure/observability/outbox-metrics";
 
 export interface PublishOutboxMessagesOptions {
   batchSize?: number;
@@ -21,6 +25,7 @@ export class PublishOutboxMessagesUseCase {
     private readonly uow: UnitOfWork,
     private readonly publisher: MessagePublisherPort,
     private readonly metrics: OutboxMetrics = defaultOutboxMetrics,
+    private readonly wageringMetrics: WageringMetrics = defaultWageringMetrics,
   ) {}
 
   async execute(options?: PublishOutboxMessagesOptions): Promise<PublishOutboxResult> {
@@ -50,6 +55,7 @@ export class PublishOutboxMessagesUseCase {
         message.scheduleRetry(new Date());
         await this.uow.transactional(async (repos) => repos.outbox.save(message));
         this.metrics.recordError(eventType);
+        this.wageringMetrics.recordRetry("outbox_publisher");
         failedCount++;
       }
     }

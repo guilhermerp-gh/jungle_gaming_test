@@ -6,11 +6,18 @@ import { OutboxMessage } from "../../domain/messaging/outbox-message";
 import { Money } from "../../domain/money/money";
 import { computePayloadHash } from "../../domain/wagering/payload-hash";
 import { WagerTransaction } from "../../domain/wagering/wager-transaction";
+import {
+  defaultWageringMetrics,
+  type WageringMetrics,
+} from "../../infrastructure/observability/wagering-metrics";
 import type { DepositDto, DepositResponseDto } from "../dto/wallet.dto";
 import type { UnitOfWork } from "../ports/unit-of-work.port";
 
 export class DepositUseCase {
-  constructor(private readonly uow: UnitOfWork) {}
+  constructor(
+    private readonly uow: UnitOfWork,
+    private readonly wageringMetrics: WageringMetrics = defaultWageringMetrics,
+  ) {}
 
   async execute(
     walletId: string,
@@ -19,7 +26,7 @@ export class DepositUseCase {
   ): Promise<DepositResponseDto> {
     const now = new Date();
 
-    return this.uow.transactional(async (repos) => {
+    const result = await this.uow.transactional(async (repos) => {
       const wallet = await repos.wallets.findByIdForUpdate(walletId);
       if (!wallet) {
         throw new DomainError(FailureCode.WALLET_NOT_FOUND, "Wallet not found");
@@ -133,5 +140,13 @@ export class DepositUseCase {
         createdAt: tx.props.createdAt.toISOString(),
       };
     });
+
+    if (result.idempotentReplay) {
+      this.wageringMetrics.recordIdempotentReplay("DEPOSIT", "http");
+    } else {
+      this.wageringMetrics.recordTransaction("PROCESSED", "DEPOSIT");
+    }
+
+    return result;
   }
 }

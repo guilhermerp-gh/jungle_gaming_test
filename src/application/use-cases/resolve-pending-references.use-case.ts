@@ -16,6 +16,10 @@ import {
   type PendingReferenceMetrics,
   type PendingResolutionOutcome,
 } from "../../infrastructure/observability/pending-reference-metrics";
+import {
+  defaultWageringMetrics,
+  type WageringMetrics,
+} from "../../infrastructure/observability/wagering-metrics";
 import type { TransactionalRepositories, UnitOfWork } from "../ports/unit-of-work.port";
 
 export interface ResolvePendingReferencesOptions {
@@ -53,6 +57,7 @@ export class ResolvePendingReferencesUseCase {
   constructor(
     private readonly uow: UnitOfWork,
     private readonly metrics: PendingReferenceMetrics = defaultPendingReferenceMetrics,
+    private readonly wageringMetrics: WageringMetrics = defaultWageringMetrics,
   ) {}
 
   /**
@@ -325,6 +330,7 @@ export class ResolvePendingReferencesUseCase {
     await repos.wagers.update(tx);
 
     this.metrics.recordResolved("rescheduled");
+    this.wageringMetrics.recordRetry("pending_reference_resolver");
     const durationMs = performance.now() - startCandidateTime;
     this.logResolution(tx, "rescheduled", durationMs);
     return "rescheduled";

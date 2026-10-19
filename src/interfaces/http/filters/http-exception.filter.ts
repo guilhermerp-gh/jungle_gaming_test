@@ -9,6 +9,9 @@ import type { Response } from "express";
 import { ConcurrencyConflictError } from "../../../application/ports/unit-of-work.port";
 import { DomainError } from "../../../domain/errors/domain-error";
 import { FailureCode } from "../../../domain/errors/failure-code";
+import { defaultWageringMetrics } from "../../../infrastructure/observability/wagering-metrics";
+import { appStructuredLogger } from "../../../infrastructure/observability/app-logger";
+import { CorrelationContext } from "../../../infrastructure/observability/correlation-context";
 
 interface ErrorEnvelope {
   error: {
@@ -63,6 +66,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
           break;
       }
     } else if (exception instanceof ConcurrencyConflictError) {
+      defaultWageringMetrics.recordLockConflict("wallet");
+      defaultWageringMetrics.recordRetry("wallet_lock");
       status = HttpStatus.SERVICE_UNAVAILABLE;
       code = "CONCURRENCY_CONFLICT";
       message = exception.message;
@@ -84,14 +89,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
       }
       retryable = status >= 500 && status < 600;
     } else if (exception instanceof Error) {
-      console.error(
-        JSON.stringify({
-          level: "error",
-          msg: "Unhandled exception caught by filter",
-          error: exception.message,
-          stack: exception.stack,
-        }),
-      );
+      appStructuredLogger.error({
+        msg: "Unhandled exception caught by filter",
+        error: exception.message,
+        stack: exception.stack,
+        correlationId: CorrelationContext.getCorrelationId(),
+      });
     }
 
     const body: ErrorEnvelope = {

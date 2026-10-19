@@ -36,16 +36,16 @@ Este workflow garante a integridade de todas as camadas do sistema seguindo a pi
      ```
    - **Comportamento em Falha:** Aponta o arquivo, linha e erro de tipagem e interrompe.
 
-4. **Etapa 3: Testes Unitários de Domínio, Casos de Uso, Mensageria, Consumers e Resolvers (`test:unit`)**
-   - **Objetivo:** Testar regras de negócio, `Money`, `Wallet`, `WageringPolicy` (incluindo `DEPOSIT`, `BET`, `WIN`, `LOSS`, `REFUND`, `ROLLBACK`), `payloadHash`, adapter de mensageria SQS FIFO, worker consumidor de transações (`WagerTransactionsConsumerWorker`), worker de resolução de pendências (`PendingReferenceResolverWorker`), caso de uso `ResolvePendingReferencesUseCase` (expiração após 10 tentativas ou TTL de 15 min, backoff exponencial com jitter, transições de estado), validação com Zod, classificação de falhas e todos os casos de uso de aplicação na memória incluindo `DepositUseCase` (65 testes unitários).
+4. **Etapa 3: Testes Unitários de Domínio, Casos de Uso, Mensageria, Consumers, Resolvers e Observabilidade (`test:unit`)**
+   - **Objetivo:** Testar regras de negócio, `Money`, `Wallet`, `WageringPolicy` (incluindo `DEPOSIT`, `BET`, `WIN`, `LOSS`, `REFUND`, `ROLLBACK`), `payloadHash`, adapter de mensageria SQS FIFO, worker consumidor de transações (`WagerTransactionsConsumerWorker`), worker de resolução de pendências (`PendingReferenceResolverWorker`), caso de uso `ResolvePendingReferencesUseCase` (expiração após 10 tentativas ou TTL de 15 min, backoff exponencial com jitter, transições de estado), métricas do Prometheus (`WageringMetrics`), rastreamento com `AsyncLocalStorage` (`CorrelationContext`), validação com Zod, classificação de falhas e todos os casos de uso de aplicação na memória incluindo `DepositUseCase` (76 testes unitários).
    - **Comando:**
      ```bash
      bun test test/unit
      ```
    - **Comportamento em Falha:** Reporta a regra de negócio/aplicação violada e interrompe.
 
-5. **Etapa 4: Testes de Integração de Persistência, HTTP, Outbox, SQS Consumer e Pending Reference Resolver (`test:integration`)**
-   - **Objetivo:** Testar transações no PostgreSQL real (locks pessimistas `SELECT ... FOR UPDATE`, triggers de imutabilidade, restrições, índices parciais e persistência de `DEPOSIT`), endpoints HTTP E2E no NestJS (incluindo `POST /wallets/:id/deposit` com replay 200 OK e detecção de conflito 409), o **Transactional Outbox Publisher** contra o AWS SQS FIFO real no LocalStack (`wallet-events.fifo`), o **SQS Consumer Worker com Inbox Pattern** (`wager-transactions.fifo`) e o **Pending Reference Resolver** (`test/integration/pending-reference-resolver.integration.test.ts`), cobrindo processamento ponta a ponta, resolução fora de ordem (WIN e REFUND antes de BET), expiração por timeout, referência rejeitada, prevenção de dupla reversão (`ALREADY_REVERSED`) e múltiplos resolvers paralelos com `FOR UPDATE SKIP LOCKED` (44 testes de integração).
+5. **Etapa 4: Testes de Integração de Persistência, HTTP, Outbox, SQS Consumer, Pending Reference Resolver e Observabilidade (`test:integration`)**
+   - **Objetivo:** Testar transações no PostgreSQL real (locks pessimistas `SELECT ... FOR UPDATE`, triggers de imutabilidade, restrições, índices parciais e persistência de `DEPOSIT`), endpoints HTTP E2E no NestJS (incluindo `POST /wallets/:id/deposit` com replay 200 OK e detecção de conflito 409), o **Transactional Outbox Publisher** contra o AWS SQS FIFO real no LocalStack (`wallet-events.fifo`), o **SQS Consumer Worker com Inbox Pattern** (`wager-transactions.fifo`), o **Pending Reference Resolver** (`test/integration/pending-reference-resolver.integration.test.ts`) e a suíte de **Observabilidade** (`test/integration/observability.integration.test.ts`), cobrindo endpoint `/metrics` em formato Prometheus text, propagação de `X-Correlation-Id`, incrementos de `wager_transactions_total`, `idempotent_replays_total`, `lock_conflicts_total` e `reconciliation_mismatch_total` (50 testes de integração).
    - **Comando:**
      ```bash
      bun test test/integration
@@ -57,6 +57,13 @@ Este workflow garante a integridade de todas as camadas do sistema seguindo a pi
    - **Comando:**
      ```bash
      bun test test/concurrency
+     ```
+
+7. **Etapa 6: Testes Multi-Instância e Recuperação Distribuída (`test:multi-instance`)**
+   - **Objetivo:** Orquestração de cluster distribuído com 3 processos Bun independentes gerenciados via `Bun.spawn`, concorrência de hot wallet entre nós distintos, substituição de nó durante replay idempotente, tempestade distribuída de requisições idênticas, isolamento horizontal de carteiras, recuperação de crash pós-commit / pré-ack no consumidor SQS e recuperação de lease expirado no outbox e pending reference resolver (7 testes multi-instância).
+   - **Comando:**
+     ```bash
+     bun test test/multi-instance --timeout 60000
      ```
 
 ---

@@ -1,6 +1,6 @@
 {
   "name": "distributed-wagering-processor",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -17,10 +17,10 @@
     "test:integration": "bun test test/integration",
     "test:concurrency": "bun test test/concurrency",
     "test:multi-instance": "bun test test/multi-instance --timeout 60000",
-    "test:suites": "bun test test",
-    "test:all": "bun run lint:money && bun run typecheck && bun test test",
+    "test:suites": "bun test test/unit && bun test test/integration --concurrency 1 && bun test test/concurrency --concurrency 1 && bun test test/multi-instance --timeout 60000",
+    "test:all": "bun run lint:money && bun run typecheck && bun test test/unit && bun test test/integration --concurrency 1 && bun test test/concurrency --concurrency 1 && bun test test/multi-instance --timeout 60000",
     "test:pipeline": "bun run test:all",
-    "check": "bun run lint && bun run typecheck && bun test test"
+    "check": "bun run lint && bun run typecheck && bun test test/unit && bun test test/integration --concurrency 1 && bun test test/concurrency --concurrency 1 && bun test test/multi-instance --timeout 60000"
   },
   "dependencies": {
     "@aws-sdk/client-sqs": "^3.1152.0",

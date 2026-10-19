@@ -954,7 +954,7 @@ export function renderApiDocsView(): string {
           <span class="ep-arrow">▼</span>
         </div>
         <div class="ep-details">
-          <p class="ep-desc">Cria uma carteira única para o jogador na moeda especificada (1 jogador = 1 carteira por moeda), gravando simultaneamente o lançamento de abertura (OPENING) no ledger contábil imutável.</p>
+          <p class="ep-desc">Cria uma carteira única para o jogador na moeda especificada (1 jogador = 1 carteira por moeda), gravando o lançamento de abertura (OPENING) no ledger contábil imutável. <strong style="color: #38bdf8;">Nota:</strong> Para testar depósitos recorrentes com garantia de <code>Idempotency-Key</code> e replay idempotente, utilize o endpoint <strong>POST /wallets/{id}/deposit</strong> logo abaixo.</p>
           <div class="form-grid">
             <div class="input-group">
               <div class="input-label">
@@ -1037,13 +1037,20 @@ export function renderApiDocsView(): string {
               <input type="text" id="param-deposit-wallet-id" class="text-input" placeholder="Cole aqui o walletId" />
             </div>
             <div class="input-group">
+              <div class="input-label" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>🔑 Chave de Idempotência (Header Idempotency-Key)</span>
+                <button class="preset-btn" style="border-color: #38bdf8; color: #38bdf8; padding: 2px 8px;" onclick="generateDepositKey()">⚡ Nova Chave</button>
+              </div>
+              <input type="text" id="param-deposit-idempotency-key" class="text-input" value="dep-001" placeholder="Ex: dep-req-001 ou UUID" oninput="updateDepositKeyBadge(this.value)" />
+            </div>
+            <div class="input-group" style="grid-column: 1 / -1;">
               <div class="input-label">
                 <span>Corpo do Depósito (JSON)</span>
                 <div class="quick-presets">
-                  <span style="font-size: 11px; color: #64748b;">Valores rápidos:</span>
-                  <button class="preset-btn" onclick="setDepositAmount('20.00')">+ R$ 20,00</button>
-                  <button class="preset-btn" onclick="setDepositAmount('50.00')">+ R$ 50,00</button>
-                  <button class="preset-btn" onclick="setDepositAmount('100.00')">+ R$ 100,00</button>
+                  <span style="font-size: 11px; color: #64748b;">Valores no payload:</span>
+                  <button class="preset-btn" onclick="setDepositAmount('20.00')">R$ 20,00</button>
+                  <button class="preset-btn" onclick="setDepositAmount('50.00')">R$ 50,00</button>
+                  <button class="preset-btn" onclick="setDepositAmount('100.00')">R$ 100,00</button>
                 </div>
               </div>
               <textarea id="body-post-deposit" class="json-textarea">{
@@ -1052,8 +1059,15 @@ export function renderApiDocsView(): string {
 }</textarea>
             </div>
           </div>
-          <div class="action-row">
-            <button class="btn-exec" onclick="execPostDeposit()">Executar Depósito</button>
+          <div class="action-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <button class="btn-exec" onclick="execPostDeposit()">Executar Depósito</button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); background: rgba(255, 255, 255, 0.04); padding: 6px 12px; border-radius: 8px; border: 1px solid var(--card-border);">
+              <span>Chave Atual de Envio:</span>
+              <code id="deposit-current-key-badge" style="color: #38bdf8; font-family: 'JetBrains Mono', monospace; font-weight: 700;">dep-001</code>
+              <span style="font-size: 11px; color: #64748b;">(clique 2x no botão acima para testar o replay!)</span>
+            </div>
           </div>
           <div id="res-post-deposit" class="response-box">
             <div class="response-header">
@@ -1273,6 +1287,20 @@ export function renderApiDocsView(): string {
       if (globalInput) globalInput.value = rand;
       var txKeyBadge = document.getElementById('tx-current-idempotency-key');
       if (txKeyBadge) txKeyBadge.textContent = rand;
+
+      // Sincroniza também novo externalTransactionId no JSON de transações para evitar conflito 409
+      try {
+        var txBody = document.getElementById('body-post-transactions');
+        if (txBody && txBody.value) {
+          var parsed = JSON.parse(txBody.value);
+          if (parsed && parsed.externalTransactionId) {
+            var prefix = parsed.kind === 'WIN' ? 'win-' : (parsed.kind === 'REFUND' ? 'ref-' : 'tx-ext-');
+            parsed.externalTransactionId = prefix + Math.random().toString(36).substring(2, 7);
+            txBody.value = JSON.stringify(parsed, null, 2);
+          }
+        }
+      } catch (e) {}
+
       return rand;
     }
 
@@ -1429,7 +1457,7 @@ export function renderApiDocsView(): string {
       updateTxChips(kind);
     }
 
-    async function execRequest(targetId, method, path, useIdempotency, body) {
+    async function execRequest(targetId, method, path, useIdempotency, body, explicitKey) {
       var statusEl = document.getElementById('status-' + targetId);
       var timeEl = document.getElementById('time-' + targetId);
       var bodyEl = document.getElementById('body-res-' + targetId);
@@ -1443,7 +1471,7 @@ export function renderApiDocsView(): string {
 
       var headers = { 'Content-Type': 'application/json' };
       if (useIdempotency) {
-        var key = document.getElementById('globalIdempotencyKey').value.trim();
+        var key = explicitKey || (document.getElementById('globalIdempotencyKey') ? document.getElementById('globalIdempotencyKey').value.trim() : '');
         if (key) headers['Idempotency-Key'] = key;
       }
 
@@ -1472,11 +1500,13 @@ export function renderApiDocsView(): string {
           var alertDiv = document.createElement('div');
           alertDiv.id = bannerId;
           alertDiv.style.cssText = 'background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.4); color: #38bdf8; padding: 10px 14px; border-radius: 8px; margin: 10px 0; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px;';
-          var replayMsg = (json.kind === 'REFUND' || (json.message && json.message.indexOf('estorno') !== -1))
-            ? '🔁 <strong>Replay de Idempotência:</strong> Este estorno já foi realizado anteriormente com esta mesma Idempotency-Key. O saldo NÃO foi creditado novamente!'
-            : (json.kind === 'BET'
-              ? '🔁 <strong>Replay de Idempotência:</strong> Esta aposta já foi processada anteriormente. O saldo NÃO foi debitado novamente!'
-              : '🔁 <strong>Replay de Idempotência:</strong> Esta transação já foi processada anteriormente com esta mesma chave. Saldo inalterado!');
+          var replayMsg = (targetId === 'post-deposit' || (json.message && json.message.indexOf('depósito') !== -1))
+            ? '🔁 <strong>Replay de Idempotência:</strong> Este depósito já foi realizado anteriormente com esta mesma Idempotency-Key. O saldo NÃO foi creditado novamente!'
+            : ((json.kind === 'REFUND' || (json.message && json.message.indexOf('estorno') !== -1))
+              ? '🔁 <strong>Replay de Idempotência:</strong> Este estorno já foi realizado anteriormente com esta mesma Idempotency-Key. O saldo NÃO foi creditado novamente!'
+              : (json.kind === 'BET'
+                ? '🔁 <strong>Replay de Idempotência:</strong> Esta aposta já foi processada anteriormente. O saldo NÃO foi debitado novamente!'
+                : '🔁 <strong>Replay de Idempotência:</strong> Esta transação já foi processada anteriormente com esta mesma chave. Saldo inalterado!'));
           alertDiv.innerHTML = replayMsg;
           boxEl.insertBefore(alertDiv, bodyEl);
         } else if (json && json.error && json.error.code === 'ALREADY_REVERSED') {
@@ -1637,11 +1667,27 @@ export function renderApiDocsView(): string {
       }
     }
 
+    function updateDepositKeyBadge(val) {
+      var badge = document.getElementById('deposit-current-key-badge');
+      if (badge) badge.textContent = val || '(vazio)';
+    }
+
+    function generateDepositKey() {
+      var rand = 'dep-' + Math.random().toString(36).substring(2, 8);
+      var depInput = document.getElementById('param-deposit-idempotency-key');
+      if (depInput) depInput.value = rand;
+      updateDepositKeyBadge(rand);
+      return rand;
+    }
+
     function execPostDeposit() {
       var id = document.getElementById('param-deposit-wallet-id').value.trim() || lastCreatedWalletId;
       if (!id) { alert('Informe o ID da carteira'); return; }
+      var keyInput = document.getElementById('param-deposit-idempotency-key');
+      var key = (keyInput && keyInput.value.trim()) ? keyInput.value.trim() : generateDepositKey();
+      updateDepositKeyBadge(key);
       var body = document.getElementById('body-post-deposit').value;
-      execRequest('post-deposit', 'POST', '/wallets/' + encodeURIComponent(id) + '/deposit', true, body);
+      execRequest('post-deposit', 'POST', '/wallets/' + encodeURIComponent(id) + '/deposit', true, body, key);
     }
 
     function execPostTransactions() {
@@ -1677,6 +1723,7 @@ export function renderApiDocsView(): string {
     // Inicialização automática de carteira com UUID único e preset BET
     generateNewPlayerWalletPayload('BRL');
     generateNewKey();
+    generateDepositKey();
     setTxPreset('BET');
   </script>
 </body>

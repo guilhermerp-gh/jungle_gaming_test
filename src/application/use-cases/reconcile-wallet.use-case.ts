@@ -2,11 +2,19 @@ import Decimal from "decimal.js";
 import { DomainError } from "../../domain/errors/domain-error";
 import { FailureCode } from "../../domain/errors/failure-code";
 import { Money } from "../../domain/money/money";
+import { appStructuredLogger } from "../../infrastructure/observability/app-logger";
+import {
+  defaultWageringMetrics,
+  type WageringMetrics,
+} from "../../infrastructure/observability/wagering-metrics";
 import type { ReconciliationResponseDto } from "../dto/reconciliation.dto";
 import type { UnitOfWork } from "../ports/unit-of-work.port";
 
 export class ReconcileWalletUseCase {
-  constructor(private readonly uow: UnitOfWork) {}
+  constructor(
+    private readonly uow: UnitOfWork,
+    private readonly wageringMetrics: WageringMetrics = defaultWageringMetrics,
+  ) {}
 
   async execute(walletId: string): Promise<ReconciliationResponseDto> {
     return this.uow.transactional(async (repos) => {
@@ -30,17 +38,15 @@ export class ReconcileWalletUseCase {
       const difference = diffVal.toFixed(2);
 
       if (!consistent) {
-        console.error(
-          JSON.stringify({
-            level: "error",
-            msg: "Accounting inconsistency detected in wallet reconciliation",
-            walletId,
-            storedBalance: storedBalanceMoney.amount,
-            calculatedBalance: calculatedBalanceMoney.amount,
-            difference,
-            entriesCount: totals.entries,
-          }),
-        );
+        this.wageringMetrics.recordReconciliationMismatch();
+        appStructuredLogger.error({
+          msg: "Accounting inconsistency detected in wallet reconciliation",
+          walletId,
+          storedBalance: storedBalanceMoney.amount,
+          calculatedBalance: calculatedBalanceMoney.amount,
+          difference,
+          entriesCount: totals.entries,
+        });
       }
 
       return {

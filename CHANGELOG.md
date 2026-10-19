@@ -7,6 +7,44 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [0.9.0] - 18-10-2026
+
+### Resumo Executivo
+
+A versão 0.9.0 eleva a transparência e a confiabilidade de todas as movimentações financeiras da plataforma. O painel operacional agora oferece explicações visuais claras e intuitivas sobre cada evento da carteira — como apostas, depósitos, estornos e prêmios —, permitindo que operadores e usuários compreendam instantaneamente o status e as garantias de cada transação sem qualquer complexidade técnica.
+
+Além disso, cada operação realizada na plataforma passa a contar com um código de identificação único que acompanha a transação de ponta a ponta. Isso torna o atendimento de suporte muito mais rápido e preciso caso o jogador tenha dúvidas sobre uma aposta ou depósito. O sistema também ganha monitoramento contínuo de estabilidade e velocidade, prevenindo lentidões e assegurando que o saldo exibido ao usuário reflita sempre seu histórico contábil com exatidão e segurança inegociáveis.
+
+### ✨ Adicionado
+- Infraestrutura unificada de métricas Prometheus com `prom-client` em `src/infrastructure/observability/wagering-metrics.ts` monitorando transações por status, replays idempotentes, conflitos de concorrência, retentativas e divergências contábeis.
+- Exposição de telemetria via endpoints `GET /metrics` (scrape oficial de texto Prometheus) e `GET /api/metrics` (JSON estruturado).
+- Rastreabilidade distribuída ponta a ponta com injeção automática de `X-Correlation-Id` e propagação de contexto assíncrono via `AsyncLocalStorage` (`CorrelationContext`).
+- Logging estruturado JSON via Pino (`AppLogger`) com atributos obrigatórios (`correlationId`, `instanceId`, `walletId`, `transactionId`, `providerId`) e sanitização estrita de payloads financeiros.
+- Painel visual interativo em `/dashboard` enriquecido com cartões em tempo real, gavetas de histórico persistido e badges explicativos `ℹ` com popovers glassmorphism contextuais.
+- Documento formal de decisões técnicas [`ARCHITECTURE.md`](./ARCHITECTURE.md) cobrindo as 8 dimensões arquiteturais, concorrência pessimista, invariantes e integração Keycloak/OIDC.
+- Especificação formal do banco de dados em [`docs/DATABASE_SCHEMA.md`](./docs/DATABASE_SCHEMA.md) com diagrama ERD Mermaid, dicionário de campos e triggers.
+- Suíte automatizada de testes de observabilidade (`test/unit/observability.test.ts` e `test/integration/observability.integration.test.ts`).
+
+### 🔄 Modificado
+- Instrumentação contábil e de latência em `ProcessWagerTransactionUseCase` e disparo de alarmes em `ReconcileWalletUseCase`.
+- Filtro global de exceções (`HttpExceptionFilter`) capturando conflitos de concorrência (`ConcurrencyConflictError`) e alimentando `lock_conflicts_total`.
+- Scripts de execução no `package.json` atualizados para isolamento serial de banco (`--concurrency 1`), garantindo 100% de estabilidade nos testes.
+- Documentação do `README.md` atualizada com o catálogo de observabilidade e métricas expostas.
+
+### 🐛 Corrigido
+- Prevenção de conflito e drop concorrente do banco de testes através do isolamento sequencial de suítes no script de validação.
+- Isolamento de clique com `stopPropagation()` no ícone informativo `ℹ` do dashboard para evitar colapso acidental de linhas.
+
+### 🧪 Sugestões de Testes
+- Executar a pipeline completa de validação: `bun run test:all` (142 testes passando com 100% de sucesso).
+- Validar conformidade financeira e tipagem estrita: `bun run lint:money && bun run typecheck`.
+- Acessar `http://localhost:3000/metrics` e verificar a saída formatada do Prometheus.
+- Acessar `http://localhost:3000/dashboard` e testar os tooltips informativos `ℹ` na tabela de eventos.
+
+📄 [Notas detalhadas da versão](./docs/releases/00.09/00.09.00.md)
+
+---
+
 ## [0.8.0] - 18-10-2026
 
 ### Resumo Executivo

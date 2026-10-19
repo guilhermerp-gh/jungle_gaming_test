@@ -20,6 +20,12 @@ import {
   defaultPendingReferenceMetrics,
   type PendingReferenceMetrics,
 } from "../../infrastructure/observability/pending-reference-metrics";
+import {
+  defaultWageringMetrics,
+  type WageringMetrics,
+} from "../../infrastructure/observability/wagering-metrics";
+import { CorrelationContext } from "../../infrastructure/observability/correlation-context";
+import { appStructuredLogger } from "../../infrastructure/observability/app-logger";
 import type { Wallet } from "../../domain/wallet/wallet";
 
 export interface MessageProcessingContext {
@@ -76,6 +82,7 @@ export class ProcessWagerTransactionUseCase {
   constructor(
     private readonly uow: UnitOfWork,
     private readonly pendingMetrics: PendingReferenceMetrics = defaultPendingReferenceMetrics,
+    private readonly wageringMetrics: WageringMetrics = defaultWageringMetrics,
   ) {}
 
   async execute(
@@ -83,6 +90,13 @@ export class ProcessWagerTransactionUseCase {
     dto: ProcessTransactionDto,
     context?: MessageProcessingContext,
   ): Promise<ProcessTransactionResult> {
+    const startTime = performance.now();
+    CorrelationContext.merge({
+      walletId: dto.walletId,
+      providerId: dto.providerId,
+      externalTransactionId: dto.externalTransactionId,
+      kind: dto.kind,
+    });
     if (!idempotencyKey || idempotencyKey.trim().length === 0) {
       throw new DomainError(FailureCode.INVALID_PAYLOAD, "Missing Idempotency-Key header");
     }
@@ -413,6 +427,17 @@ export class ProcessWagerTransactionUseCase {
     }
 
     if (executionResult.type === "REPLAY") {
+      this.wageringMetrics.recordIdempotentReplay(dto.kind, context?.consumerName ? "sqs" : "http");
+      const duration = (performance.now() - startTime) / 1000;
+      this.wageringMetrics.recordDuration("process_wager_transaction", "idempotent_replay", duration);
+      appStructuredLogger.log({
+        msg: "Idempotent replay served",
+        transactionId: executionResult.tx.id,
+        walletId: dto.walletId,
+        providerId: dto.providerId,
+        kind: dto.kind,
+        idempotentReplay: true,
+      });
       const txDto = toDto(executionResult.tx, true);
       return {
         statusCode: 200,
@@ -423,6 +448,17 @@ export class ProcessWagerTransactionUseCase {
     }
 
     if (executionResult.type === "PROCESSED") {
+      this.wageringMetrics.recordTransaction("PROCESSED", dto.kind);
+      const duration = (performance.now() - startTime) / 1000;
+      this.wageringMetrics.recordDuration("process_wager_transaction", "PROCESSED", duration);
+      appStructuredLogger.log({
+        msg: "Wager transaction processed successfully",
+        transactionId: executionResult.tx.id,
+        walletId: dto.walletId,
+        providerId: dto.providerId,
+        kind: dto.kind,
+        status: "PROCESSED",
+      });
       return {
         statusCode: 201,
         idempotentReplay: false,
@@ -431,6 +467,18 @@ export class ProcessWagerTransactionUseCase {
     }
 
     if (executionResult.type === "PENDING_REFERENCE") {
+      this.wageringMetrics.recordTransaction("PENDING_REFERENCE", dto.kind);
+      const duration = (performance.now() - startTime) / 1000;
+      this.wageringMetrics.recordDuration("process_wager_transaction", "PENDING_REFERENCE", duration);
+      appStructuredLogger.log({
+        msg: "Wager transaction marked as pending reference",
+        transactionId: executionResult.tx.id,
+        walletId: dto.walletId,
+        providerId: dto.providerId,
+        kind: dto.kind,
+        referenceExternalTransactionId: dto.referenceExternalTransactionId,
+        status: "PENDING_REFERENCE",
+      });
       return {
         statusCode: 202,
         idempotentReplay: false,
@@ -439,6 +487,19 @@ export class ProcessWagerTransactionUseCase {
     }
 
     // Caso REJECTED: a transação e o outbox já foram persistidos e commitados!
+    this.wageringMetrics.recordTransaction("REJECTED", dto.kind);
+    const duration = (performance.now() - startTime) / 1000;
+    this.wageringMetrics.recordDuration("process_wager_transaction", "REJECTED", duration);
+    appStructuredLogger.warn({
+      msg: "Wager transaction rejected by policy",
+      transactionId: executionResult.tx.id,
+      walletId: dto.walletId,
+      providerId: dto.providerId,
+      kind: dto.kind,
+      failureCode: executionResult.code,
+      status: "REJECTED",
+    });
+
     const message =
       executionResult.code === FailureCode.ALREADY_REVERSED
         ? `A transação de referência já foi estornada anteriormente (${dto.referenceExternalTransactionId}).`

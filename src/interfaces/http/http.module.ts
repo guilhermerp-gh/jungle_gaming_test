@@ -1,4 +1,5 @@
-import { type DynamicModule, Module, type Provider } from "@nestjs/common";
+import { type DynamicModule, type MiddlewareConsumer, Module, type NestModule, type Provider } from "@nestjs/common";
+import { CorrelationIdMiddleware } from "./middlewares/correlation-id.middleware";
 import { MikroORM } from "@mikro-orm/postgresql";
 import type { UnitOfWork } from "../../application/ports/unit-of-work.port";
 import {
@@ -101,15 +102,19 @@ function buildProviders(options?: HttpModuleOptions): Provider[] {
 @Module({
   controllers: [WalletsController, TransactionsController],
   providers: buildProviders(),
-  exports: [UNIT_OF_WORK, AuthGuard],
+  exports: [UNIT_OF_WORK, MIKRO_ORM, AuthGuard],
 })
-export class HttpModule {
+export class HttpModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(CorrelationIdMiddleware).forRoutes("*");
+  }
+
   static register(options?: HttpModuleOptions): DynamicModule {
     return {
       module: HttpModule,
       controllers: [WalletsController, TransactionsController],
       providers: buildProviders(options),
-      exports: [UNIT_OF_WORK, AuthGuard],
+      exports: [UNIT_OF_WORK, MIKRO_ORM, AuthGuard],
     };
   }
 }
