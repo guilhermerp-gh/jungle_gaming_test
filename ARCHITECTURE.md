@@ -53,6 +53,7 @@ src/
 1. **Domínio Puro e Agnóstico:** O domínio (`src/domain/`) não contém decorators do NestJS nem do MikroORM. Toda hidratação é feita via factories explícitas e mappers de infraestrutura.
 2. **Stateless Nodes (Escalabilidade Horizontal):** As instâncias do serviço não mantêm estado crítico em memória nem sincronizam locks locais; a integridade e coordenação distribuída são delegadas às garantias ACID do PostgreSQL.
 3. **Papeis por Processo (`APP_ROLE`):** A mesma imagem e binário suporta papéis especializados (`all`, `api`, `consumer`, `outbox`, `resolver`), viabilizando escalonamento assimétrico de containers.
+4. **Dual-Compatibility & Conformidade Estrita (Seções 9 e 10):** A camada de interface HTTP e mensageria implementa compatibilidade dupla. Suporta aliases `@Controller(["wagering/transactions", "transactions"])`, rota canônica de provedor `GET /providers/:providerId/wagering/transactions/:externalTransactionId`, envelopes de mensagem SQS `{ type: "WagerTransactionRequested", data: { ... } }` e envelope híbrido de resposta (`transactionId` + `id`, `balance` + `resultBalance`), mantendo 100% de retrocompatibilidade com a suíte de testes existente.
 
 ---
 
@@ -125,9 +126,10 @@ O processador garante que requisições idênticas repetidas (quedas de rede, re
 * Índice único composto: `UNIQUE(provider_id, external_transaction_id)`.
 * Impede que o provedor reenvie a mesma aposta externa usando uma chave de idempotência diferente.
 
-### 🔍 Diferenciação Canônica de Replay vs Conflito:
+### 🔍 Diferenciação Canônica de Replay vs Conflito & Dual-Compatibility:
 
 O payload é transformado em um **JSON Canônico** (chaves ordenadas lexicograficamente de forma recursiva) e seu hash SHA-256 é computado:
+* **Normalização Canônica (Dual-Compatibility):** A camada de DTOs normaliza tanto requisições com o objeto monetário `money: { amount, currency }` (Seção 9 Jungle Gaming) quanto o formato plano legado (`amount`, `currency`) para a mesma estrutura interna canônica antes do cálculo do hash. Isso garante que submeter a mesma aposta em formatos sintáticos distintos sob a mesma `Idempotency-Key` gere exatamente o mesmo SHA-256, sendo atendida como replay válido (`200 OK`) sem falso conflito.
 * **Mesma Chave + Mesmo Payload Hash:** **Replay Válido (`200 OK`).** O snapshot persistido da transação é retornado (`idempotentReplay: true`), refletindo o saldo e status da época sem alterar nada.
 * **Mesma Chave + Payload Hash Divergente:** **Conflito de Idempotência (`409 Conflict`).** Rejeição imediata sem efeitos colaterais.
 
@@ -151,11 +153,12 @@ Para evitar inconsistências em que a transação no banco é commitada mas o ev
 4. O evento é despachado para a fila AWS SQS FIFO `wallet-events.fifo` com `MessageDeduplicationId = event.id` e `MessageGroupId = event.aggregateId`.
 5. Se o worker cair após publicar mas antes de registrar `published_at`, o lease expira e outro worker republica; a fila SQS FIFO e os consumidores deduplicam pelo `eventId`, mantendo a semântica **At-Least-Once**.
 
-### 📥 Inbox Pattern (Consumidor SQS FIFO)
+### 📥 Inbox Pattern & Envelope Flexível (Consumidor SQS FIFO)
 
-1. Mensagens de transação recebidas de `wager-transactions.fifo` registram um envelope na tabela `inbox_messages` (`PRIMARY KEY(consumer_name, message_id)`).
-2. Se a mensagem já existir e estiver marcada como processada, o consumidor faz `DeleteMessage` imediatamente (ack) sem reprocessar a lógica contábil.
-3. Se um nó for desligado bruscamente (`SIGKILL` ou crash) após commitar no banco mas antes do ack no SQS, a mensagem reentregue pelo LocalStack é absorvida silenciosamente pela idempotência persistente e pelo inbox.
+1. **Envelope Jungle Gaming & Compatibilidade Dupla:** O consumidor SQS aceita tanto o envelope oficial de eventos da Jungle Gaming `{ type: "WagerTransactionRequested", data: { ... } }` quanto payloads planos diretos. O parser extrai e normaliza `data.money` e infere a `idempotencyKey` caso omitida (`providerId:externalTransactionId`).
+2. Mensagens de transação recebidas de `wager-transactions.fifo` registram um envelope na tabela `inbox_messages` (`PRIMARY KEY(consumer_name, message_id)`).
+3. Se a mensagem já existir e estiver marcada como processada, o consumidor faz `DeleteMessage` imediatamente (ack) sem reprocessar a lógica contábil.
+4. Se um nó for desligado bruscamente (`SIGKILL` ou crash) após commitar no banco mas antes do ack no SQS, a mensagem reentregue pelo LocalStack é absorvida silenciosamente pela idempotência persistente e pelo inbox.
 
 ### 💀 Dead Letter Queue (DLQ) & Poison Pills:
 

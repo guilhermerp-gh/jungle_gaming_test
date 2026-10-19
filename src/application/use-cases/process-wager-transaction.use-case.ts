@@ -54,6 +54,7 @@ function toDto(tx: WagerTransaction, idempotentReplay = false): TransactionRespo
   }
 
   return {
+    transactionId: p.id,
     id: p.id,
     providerId: p.providerId,
     externalTransactionId: p.externalTransactionId,
@@ -67,6 +68,7 @@ function toDto(tx: WagerTransaction, idempotentReplay = false): TransactionRespo
     status: p.status,
     failureCode: p.failureCode,
     resultBalance: p.resultBalance ? p.resultBalance.amount : null,
+    balance: p.resultBalance ? { amount: p.resultBalance.amount, currency: p.resultBalance.currency } : null,
     referenceExternalTransactionId: p.referenceExternalTransactionId,
     referenceTransactionId: p.referenceTransactionId,
     createdAt: p.createdAt.toISOString(),

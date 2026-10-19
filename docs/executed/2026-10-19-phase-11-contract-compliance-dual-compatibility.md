@@ -11,7 +11,7 @@
 | **Versão** | v1.0 |
 | **Data** | 19/10/2026 |
 | **Autor** | Guilherme |
-| **Status** | Pronto para Execução |
+| **Status** | Concluído |
 | **Prioridade** | Alta |
 | **Tipo** | Refatoração / Ajuste de Contrato |
 
@@ -146,14 +146,14 @@ Implementar **Dual-Compatibility (compatibilidade dupla)** nas camadas de interf
 
 ## ✅ Critérios de Aceite
 
-- [ ] Quando `POST /wagering/transactions` for chamado com `money: { amount, currency }`, a resposta deve ser `201 Created` contendo `transactionId` e `balance: { amount, currency }`.
-- [ ] Quando `POST /transactions` for chamado com o formato plano legado (`amount`, `currency`), deve manter o funcionamento idêntico e passar em todos os testes existentes.
-- [ ] Quando `GET /wagering/transactions/:id` for chamado, deve retornar a transação com `200 OK`.
-- [ ] Quando `GET /providers/:providerId/wagering/transactions/:externalId` for chamado, deve consultar e retornar a transação do provedor com `200 OK`.
-- [ ] Quando `POST /wallets` for chamado com `initialBalance: { amount: "100.00", currency: "BRL" }`, a carteira deve ser criada com saldo `100.00 BRL` e lançamento `OPENING` no ledger.
-- [ ] Quando uma mensagem SQS for postada com o envelope `{ type: "WagerTransactionRequested", data: { ... } }`, o worker deve consumir, processar e dar `DeleteMessage` com sucesso.
-- [ ] Quando a suíte completa de testes (`bun run check`) for executada, todos os testes (unitários, integração, concorrência e multi-instância) devem passar com 0 falhas.
-- [ ] Quando o benchmark de carga (`bun run test:load`) for executado, deve atingir 0% de erros 5xx e 100% de consistência contábil.
+- [x] Quando `POST /wagering/transactions` for chamado com `money: { amount, currency }`, a resposta deve ser `201 Created` contendo `transactionId` e `balance: { amount, currency }`.
+- [x] Quando `POST /transactions` for chamado com o formato plano legado (`amount`, `currency`), deve manter o funcionamento idêntico e passar em todos os testes existentes.
+- [x] Quando `GET /wagering/transactions/:id` for chamado, deve retornar a transação com `200 OK`.
+- [x] Quando `GET /providers/:providerId/wagering/transactions/:externalId` for chamado, deve consultar e retornar a transação do provedor com `200 OK`.
+- [x] Quando `POST /wallets` for chamado com `initialBalance: { amount: "100.00", currency: "BRL" }`, a carteira deve ser criada com saldo `100.00 BRL` e lançamento `OPENING` no ledger.
+- [x] Quando uma mensagem SQS for postada com o envelope `{ type: "WagerTransactionRequested", data: { ... } }`, o worker deve consumir, processar e dar `DeleteMessage` com sucesso.
+- [x] Quando a suíte completa de testes (`bun run check`) for executada, todos os testes (unitários, integração, concorrência e multi-instância) devem passar com 0 falhas.
+- [x] Quando o benchmark de carga (`bun run test:load`) for executado, deve atingir 0% de erros 5xx e 100% de consistência contábil.
 
 ---
 
@@ -165,6 +165,7 @@ Implementar **Dual-Compatibility (compatibilidade dupla)** nas camadas de interf
   - [`src/application/dto/wallet.dto.ts`](file:///Users/guilherme/testes/jungle_gaming_test/src/application/dto/wallet.dto.ts): Preprocessador Zod para `initialBalance` em formato objeto ou string e `WalletResponseDto`.
 - **Camada de Interfaces HTTP (`src/interfaces/http/controllers/`):**
   - [`src/interfaces/http/controllers/transactions.controller.ts`](file:///Users/guilherme/testes/jungle_gaming_test/src/interfaces/http/controllers/transactions.controller.ts): Aliases de rota `@Controller(["wagering/transactions", "transactions"])` e rota de provedor.
+  - [`src/interfaces/http/controllers/providers-transactions.controller.ts`](file:///Users/guilherme/testes/jungle_gaming_test/src/interfaces/http/controllers/providers-transactions.controller.ts): Rota canônica `GET /providers/:providerId/wagering/transactions/:externalTransactionId`.
 - **Camada de Workers SQS (`src/interfaces/workers/`):**
   - [`src/interfaces/workers/wager-transactions-consumer.worker.ts`](file:///Users/guilherme/testes/jungle_gaming_test/src/interfaces/workers/wager-transactions-consumer.worker.ts): Suporte a envelope `{ type, data }`.
 - **Testes de Integração (`test/integration/`):**
@@ -192,13 +193,13 @@ Implementar **Dual-Compatibility (compatibilidade dupla)** nas camadas de interf
 
 ## 🧪 Testes Esperados
 
-- [ ] `POST /wagering/transactions` com `money: { amount: "25.00", currency: "BRL" }` retorna `201 Created` e `balance: { amount: "...", currency: "BRL" }`.
-- [ ] `GET /wagering/transactions/:transactionId` retorna a transação correta.
-- [ ] `GET /providers/:providerId/wagering/transactions/:externalId` retorna a transação correspondente.
-- [ ] `POST /wallets` com `initialBalance: { amount: "500.00", currency: "BRL" }` cria carteira e credita `OPENING`.
-- [ ] Consumo SQS de mensagem com formato `{ type: "WagerTransactionRequested", data: { ... } }` processa com sucesso.
-- [ ] Replay idempotente na rota `/wagering/transactions` retorna `200 OK` e `idempotentReplay: true`.
-- [ ] Validação piramidal completa (`bun run check`) sem regressões.
+- [x] `POST /wagering/transactions` com `money: { amount: "25.00", currency: "BRL" }` retorna `201 Created` e `balance: { amount: "...", currency: "BRL" }`.
+- [x] `GET /wagering/transactions/:transactionId` retorna a transação correta.
+- [x] `GET /providers/:providerId/wagering/transactions/:externalId` retorna a transação correspondente.
+- [x] `POST /wallets` com `initialBalance: { amount: "500.00", currency: "BRL" }` cria carteira e credita `OPENING`.
+- [x] Consumo SQS de mensagem com formato `{ type: "WagerTransactionRequested", data: { ... } }` processa com sucesso.
+- [x] Replay idempotente na rota `/wagering/transactions` retorna `200 OK` e `idempotentReplay: true`.
+- [x] Validação piramidal completa (`bun run check`) sem regressões.
 
 ---
 

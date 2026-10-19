@@ -98,6 +98,8 @@ export class CreateWalletUseCase {
           playerId: wallet.playerId,
           currency: wallet.currency,
           balance: wallet.balance.amount,
+          balanceAmount: wallet.balance.amount,
+          money: { amount: wallet.balance.amount, currency: wallet.currency },
           version: wallet.version,
           createdAt: wallet.createdAt.toISOString(),
           updatedAt: wallet.updatedAt.toISOString(),

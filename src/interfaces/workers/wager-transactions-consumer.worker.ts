@@ -25,19 +25,56 @@ import {
   SqsConsumerMetrics,
 } from "../../infrastructure/observability/sqs-consumer-metrics";
 
-export const WagerMessagePayloadSchema = z.object({
-  idempotencyKey: z.string().min(1),
-  providerId: z.string().min(1),
-  externalTransactionId: z.string().min(1),
-  playerId: z.string().uuid(),
-  walletId: z.string().uuid(),
-  roundId: z.string().min(1),
-  gameId: z.string().min(1),
-  kind: z.enum(["BET", "WIN", "LOSS", "REFUND", "ROLLBACK"]),
-  amount: z.string().regex(/^\d+(\.\d{1,2})?$/),
-  currency: z.string().length(3),
-  referenceExternalTransactionId: z.string().nullish(),
-});
+export const WagerMessagePayloadSchema = z.preprocess(
+  (val) => {
+    if (val && typeof val === "object" && !Array.isArray(val)) {
+      const raw = { ...(val as Record<string, unknown>) };
+      const target =
+        raw.data && typeof raw.data === "object" && !Array.isArray(raw.data)
+          ? { ...(raw.data as Record<string, unknown>) }
+          : raw;
+
+      if (target.money && typeof target.money === "object" && !Array.isArray(target.money)) {
+        const moneyObj = target.money as Record<string, unknown>;
+        if (target.amount === undefined && moneyObj.amount !== undefined) {
+          target.amount =
+            typeof moneyObj.amount === "number"
+              ? moneyObj.amount.toFixed(2)
+              : String(moneyObj.amount);
+        }
+        if (target.currency === undefined && moneyObj.currency !== undefined) {
+          target.currency = String(moneyObj.currency);
+        }
+      } else if (typeof target.amount === "number") {
+        target.amount = (target.amount as number).toFixed(2);
+      }
+
+      if (!target.idempotencyKey) {
+        if (raw.idempotencyKey) {
+          target.idempotencyKey = String(raw.idempotencyKey);
+        } else if (target.providerId && target.externalTransactionId) {
+          target.idempotencyKey = `${String(target.providerId)}:${String(target.externalTransactionId)}`;
+        }
+      }
+
+      return target;
+    }
+    return val;
+  },
+  z.object({
+    idempotencyKey: z.string().min(1),
+    providerId: z.string().min(1),
+    externalTransactionId: z.string().min(1),
+    playerId: z.string().uuid(),
+    walletId: z.string().uuid(),
+    roundId: z.string().min(1),
+    gameId: z.string().min(1),
+    kind: z.enum(["BET", "WIN", "LOSS", "REFUND", "ROLLBACK"]),
+    amount: z.string().regex(/^\d+(\.\d{1,2})?$/),
+    currency: z.string().length(3),
+    referenceExternalTransactionId: z.string().nullish(),
+  }),
+);
 
 export type WagerMessagePayload = z.infer<typeof WagerMessagePayloadSchema>;
 

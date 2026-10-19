@@ -7,6 +7,43 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [0.11.0] - 19-10-2026
+
+### Resumo Executivo
+
+A versão 0.11.0 traz integração universal e flexibilidade máxima para conexão com diferentes provedores de jogos e parceiros do ecossistema. O sistema passa a aceitar transações e consultas financeiras em múltiplos formatos de comunicação de forma totalmente transparente e automática, sem exigir que jogos antigos ou novos precisem se adaptar a um modelo único e rígido.
+
+Com essa compatibilidade aprimorada, o jogador e os operadores ganham confirmações de apostas e prêmios ainda mais rápidas e seguras. Toda consulta sobre o histórico de jogadas agora pode ser realizada diretamente pelo identificador do jogo ou do provedor parceiro, garantindo rastreabilidade imediata e saldo sempre exato, sem risco de cobranças duplicadas mesmo se uma aposta for enviada em formatos diferentes.
+
+### ✨ Adicionado
+- Roteamento HTTP duplo no `TransactionsController` (`@Controller(["wagering/transactions", "transactions"])`) com suporte oficial a `/wagering/transactions` e `/transactions`.
+- Rota canônica de consulta de provedores `GET /providers/:providerId/wagering/transactions/:externalTransactionId` via `ProvidersTransactionsController`.
+- Preprocessamento Zod com Dual-Compatibility em `ProcessTransactionSchema` e `CreateWalletSchema`, aceitando tanto o nó `money: { amount, currency }` quanto propriedades planas `amount` e `currency`.
+- Respostas enriquecidas em `TransactionResponseDto` (com `transactionId`, `id`, `balance: { amount, currency }` e `resultBalance`) e `WalletResponseDto`.
+- Consumo resiliente no `WagerTransactionsConsumerWorker` aceitando o envelope de evento oficial da Jungle Gaming (`{ type: "WagerTransactionRequested", data: { ... } }`) e auto-inferência de `idempotencyKey`.
+- Normalização canônica no cálculo do hash SHA-256 de idempotência, garantindo que requisições com `money` ou atributos planos compartilhem o mesmo hash sem colisões de concorrência.
+- Nova suíte de testes de integração em `test/integration/jungle-contract-compliance.test.ts` e suíte de testes unitários em `test/unit/dtos.test.ts`, totalizando **157 testes automatizados** aprovados.
+
+### 🔄 Modificado
+- Fila isolada em `test/integration/outbox-publisher.integration.test.ts` eliminando interferência de testes residuais de carga.
+- Atualização da skill `run-tests` e do workflow correspondente com inventário exato de 157 testes e 22 arquivos.
+- Atualização de [`README.md`](./README.md), [`ARCHITECTURE.md`](./ARCHITECTURE.md) e [`docs/TESTING.md`](./docs/TESTING.md).
+- Versão elevada para `0.11.0` em [`package.json`](./package.json).
+
+### 🐛 Corrigido
+- Prevenção de divergência e instabilidade em testes de integração de outbox causados por acúmulo residual de mensagens em filas FIFO compartilhadas.
+- Tolerância a mensagens SQS sem `idempotencyKey` explícita através de auto-inferência automática a partir de `${providerId}:${externalTransactionId}`.
+
+### 🧪 Sugestões de Testes
+- Executar os testes de conformidade Jungle Gaming: `bun test test/integration/jungle-contract-compliance.test.ts`.
+- Validar os testes de DTOs e estabilidade de hash: `bun test test/unit/dtos.test.ts`.
+- Executar a pipeline completa de validação: `bun run check` (157 testes passando).
+- Executar os testes de carga e reconciliação contábil: `bun run test:load --quick`.
+
+📄 [Notas detalhadas da versão](./docs/releases/00.11/00.11.00.md)
+
+---
+
 ## [0.10.0] - 19-10-2026
 
 ### Resumo Executivo

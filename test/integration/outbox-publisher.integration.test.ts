@@ -30,7 +30,9 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import {
+  CreateQueueCommand,
   DeleteMessageCommand,
+  DeleteQueueCommand,
   ReceiveMessageCommand,
   SQSClient,
 } from "@aws-sdk/client-sqs";
@@ -51,20 +53,19 @@ import {
 } from "../helpers/db";
 
 const SQS_ENDPOINT = process.env.AWS_ENDPOINT_URL ?? "http://localhost:4566";
-const QUEUE_URL =
-  process.env.EVENTS_QUEUE_URL ??
-  "http://localhost:4566/000000000000/wallet-events.fifo";
 
 describe("Transactional Outbox Publisher (Integration Tests - Fase 5)", () => {
   let db: TestDb;
   let sqsClient: SQSClient;
   let publisher: SqsMessagePublisher;
+  let testQueueUrl: string;
 
   async function drainQueue() {
+    if (!testQueueUrl) return;
     for (let i = 0; i < 5; i++) {
       const res = await sqsClient.send(
         new ReceiveMessageCommand({
-          QueueUrl: QUEUE_URL,
+          QueueUrl: testQueueUrl,
           MaxNumberOfMessages: 10,
           WaitTimeSeconds: 0,
         }),
@@ -74,7 +75,7 @@ describe("Transactional Outbox Publisher (Integration Tests - Fase 5)", () => {
         if (msg.ReceiptHandle) {
           await sqsClient.send(
             new DeleteMessageCommand({
-              QueueUrl: QUEUE_URL,
+              QueueUrl: testQueueUrl,
               ReceiptHandle: msg.ReceiptHandle,
             }),
           );
@@ -90,8 +91,22 @@ describe("Transactional Outbox Publisher (Integration Tests - Fase 5)", () => {
       endpoint: SQS_ENDPOINT,
       credentials: { accessKeyId: "test", secretAccessKey: "test" },
     });
+
+    const runId = randomUUID().slice(0, 8);
+    const queueName = `outbox-test-${runId}.fifo`;
+    const res = await sqsClient.send(
+      new CreateQueueCommand({
+        QueueName: queueName,
+        Attributes: {
+          FifoQueue: "true",
+          ContentBasedDeduplication: "false",
+        },
+      }),
+    );
+    testQueueUrl = res.QueueUrl!;
+
     publisher = new SqsMessagePublisher({
-      queueUrl: QUEUE_URL,
+      queueUrl: testQueueUrl,
       client: sqsClient,
     });
   });
@@ -102,7 +117,9 @@ describe("Transactional Outbox Publisher (Integration Tests - Fase 5)", () => {
   });
 
   afterAll(async () => {
-    await drainQueue();
+    if (testQueueUrl) {
+      await sqsClient.send(new DeleteQueueCommand({ QueueUrl: testQueueUrl })).catch(() => {});
+    }
     await db.close();
   });
 
@@ -157,7 +174,7 @@ describe("Transactional Outbox Publisher (Integration Tests - Fase 5)", () => {
     // 5. Recebe as mensagens reais do LocalStack SQS
     const sqsRes = await sqsClient.send(
       new ReceiveMessageCommand({
-        QueueUrl: QUEUE_URL,
+        QueueUrl: testQueueUrl,
         MaxNumberOfMessages: 10,
         WaitTimeSeconds: 2,
       }),

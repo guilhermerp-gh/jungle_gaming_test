@@ -56,9 +56,9 @@ Antes de iniciar, certifique-se de ter instalado em sua máquina:
    1. **`POST /wallets`**: Crie uma carteira informando um `playerId` (UUID válido, ex.: `a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11`), moeda `currency: "BRL"` e saldo inicial `initialBalance: "20.00"`. Copie o `id` da carteira retornado.
    2. **`GET /wallets/{id}`**: Consulte a carteira pelo `id` para ver o saldo e a versão inicial.
    3. **`POST /wallets/{id}/deposit`**: Faça um depósito de fundos (`{"amount": "50.00"}`) com header `Idempotency-Key` (ex.: `dep-001`). O saldo sobe para R$ 70,00 (`201 Created`), gerando lançamento `CREDIT` no ledger e evento Outbox. Replays com a mesma chave retornam `200 OK` com `"idempotentReplay": true` e mensagem informativa sem creditar novamente!
-   4. **`POST /transactions`**: Faça uma aposta `BET` de R$ 10,00 informando `Idempotency-Key: req-001`, `providerId: "evolution"`, `externalTransactionId: "tx-ext-001"`, `kind: "BET"`, `amount: "10.00"`, `currency: "BRL"`, `roundId: "round-1"`, `gameId: "roulette"` e o `walletId`/`playerId`. O saldo passará para R$ 60,00 (`201 Created`).
-   5. **`POST /transactions` (Idempotência / Replay)**: Clique em *Execute* novamente sem alterar nada (mesma chave e mesmo corpo). O retorno será `200 OK` com `"idempotentReplay": true` e a mensagem explicativa `"Replay de Idempotência: esta aposta já foi processada anteriormente. O saldo não foi debitado novamente."`, sem alterar o saldo ou duplicar lançamentos.
-   6. **`POST /transactions` (Estorno ou Prêmio)**:
+   4. **`POST /wagering/transactions`** *(ou `/transactions`)*: Faça uma aposta `BET` de R$ 10,00 informando `Idempotency-Key: req-001`, `providerId: "evolution"`, `externalTransactionId: "tx-ext-001"`, `kind: "BET"`, `money: { "amount": "10.00", "currency": "BRL" }` (ou formato plano `amount`/`currency`), `roundId: "round-1"`, `gameId: "roulette"` e o `walletId`/`playerId`. O saldo passará para R$ 60,00 (`201 Created`), retornando tanto `transactionId` quanto `balance: { amount, currency }`.
+   5. **`POST /wagering/transactions` (Idempotência / Replay)**: Clique em *Execute* novamente sem alterar nada (mesma chave e mesmo corpo). O retorno será `200 OK` com `"idempotentReplay": true` e a mensagem explicativa `"Replay de Idempotência: esta aposta já foi processada anteriormente. O saldo não foi debitado novamente."`, sem alterar o saldo ou duplicar lançamentos.
+   6. **`POST /wagering/transactions` (Estorno ou Prêmio)**:
       * **Estorno (`REFUND`)**: Estorne a aposta com `kind: "REFUND"` de R$ 10,00 referenciando `referenceExternalTransactionId: "tx-ext-001"` (saldo retorna para R$ 70,00). Se repetir a mesma requisição, recebe `200 OK` de replay com aviso claro. Se tentar realizar um *novo* estorno para a mesma aposta, o sistema bloqueia com `422 Unprocessable Entity` (`ALREADY_REVERSED`) acompanhado de metadados de auditoria em `details` (ID do estorno original, data e valor).
       * **Prêmio (`WIN`)**: Ou credite um prêmio `kind: "WIN"` de R$ 50,00 com nova chave (`req-002`), elevando o saldo para R$ 110,00.
    7. **`GET /wallets/{id}/ledger`**: Obtenha o extrato contábil paginado com o histórico de todos os lançamentos.
@@ -71,14 +71,14 @@ Antes de iniciar, certifique-se de ter instalado em sua máquina:
 
 | Método | Endpoint | Idempotency-Key | Descrição |
 | :--- | :--- | :---: | :--- |
-| `POST` | `/wallets` | Não | Criação de carteira para um jogador (`playerId`, `currency`, `initialBalance`) |
+| `POST` | `/wallets` | Não | Criação de carteira para um jogador (`playerId`, `currency`, `initialBalance` em string ou objeto `{ amount, currency }`) |
 | `GET` | `/wallets/:id` | Não | Consulta de saldo e metadados da carteira |
 | `POST` | `/wallets/:id/deposit` | **Sim** | Depósito de saldo com lock pessimista, ledger `CREDIT` e garantia de idempotência estrita |
 | `POST` | `/wallets/:id/reconciliation` | Não | Reconciliação matemática do saldo armazenado contra o somatório auditável do ledger |
 | `GET` | `/wallets/:id/ledger` | Não | Extrato contábil imutável com paginação baseada em cursor base64 (`limit`, `cursor`) |
-| `POST` | `/transactions` | **Sim** | Processamento de transações (`BET`, `WIN`, `LOSS`, `REFUND`, `ROLLBACK`) |
-| `GET` | `/transactions/:id` | Não | Consulta de transação por identificador interno UUID |
-| `GET` | `/transactions/external/:providerId/:externalId` | Não | Consulta de transação por provedor e ID externo |
+| `POST` | `/wagering/transactions` *(alias: `/transactions`)* | **Sim** | Processamento de transações (`BET`, `WIN`, `LOSS`, `REFUND`, `ROLLBACK`) com suporte a `money: { amount, currency }` ou campos planos |
+| `GET` | `/wagering/transactions/:transactionId` *(alias: `/transactions/:id`)* | Não | Consulta de transação por identificador interno UUID |
+| `GET` | `/providers/:providerId/wagering/transactions/:externalTransactionId` | Não | Rota canônica Jungle Gaming de consulta por provedor e ID externo (alias legado: `/transactions/external/:providerId/:externalId`) |
 | `GET` | `/health/live` | Não | Liveness probe do serviço HTTP |
 | `GET` | `/metrics` / `/dashboard` | Não | Painel de telemetria e métricas Prometheus / HTML em tempo real |
 | `GET` | `/docs` | Não | Documentação interativa moderna da API com console de testes |

@@ -44,14 +44,14 @@ A validação do projeto é estruturada segundo o princípio **Fail-Fast**: as e
                   ▲
                  / \     [Etapa 6] Multi-Instância e Recuperação Distribuída (7 testes)
                 /   \    [Etapa 5] Alta Concorrência & Hot-Wallets (9 testes)
-               /     \   [Etapa 4] Integração Postgres & SQS FIFO (50 testes)
-              /       \  [Etapa 3] Testes Unitários de Domínio & Workers (76 testes)
+               /     \   [Etapa 4] Integração Postgres & SQS FIFO (57 testes)
+              /       \  [Etapa 3] Testes Unitários de Domínio & Workers (84 testes)
              /_________\ [Etapa 2] Typecheck Estrito TypeScript (tsc --noEmit)
             /___________\ [Etapa 1] Guarda Financeira (lint:money - sem floats)
 ```
 
 ### 🚀 Comando Único Recomendado:
-Para rodar toda a esteira piramidal de uma única vez (142 testes automatizados):
+Para rodar toda a esteira piramidal de uma única vez (157 testes automatizados):
 
 ```bash
 bun run test:all
@@ -79,12 +79,13 @@ Caso queira isolar uma camada específica durante o desenvolvimento:
   ```
 
 ### 3. Testes Unitários de Domínio & Workers (`test:unit`)
-- **Objetivo:** Executa **76 testes** ultrarrápidos em memória (< 500ms):
+- **Objetivo:** Executa **84 testes** ultrarrápidos em memória (< 600ms):
   - Aritmética e imutabilidade do `Money` (rejeita NaN, Infinity, notação científica e negativos).
   - Regras de negócio da `WageringPolicy` para `DEPOSIT`, `BET`, `WIN`, `LOSS`, `REFUND` e `ROLLBACK`.
   - Máquina de estados das transações financeiras (`WagerTransaction`).
   - Hashing canônico determinístico do payload de idempotência (`payloadHash`).
-  - Workers e use cases isolados (`PublishOutboxMessagesUseCase`, `ResolvePendingReferencesUseCase`, `WagerTransactionsConsumerWorker`).
+  - Conformidade de schemas e DTOs com Dual-Compatibility (`ProcessTransactionSchema`, `CreateWalletSchema`, `WagerMessagePayloadSchema`, nó aninhado `money: { amount, currency }` vs flat `amount`/`currency`, e auto-inferência de `idempotencyKey`).
+  - Workers e use cases isolados (`PublishOutboxMessagesUseCase`, `ResolvePendingReferencesUseCase`, `WagerTransactionsConsumerWorker`, `PendingReferenceResolverWorker`).
 - **Comando:**
   ```bash
   bun run test
@@ -93,10 +94,11 @@ Caso queira isolar uma camada específica durante o desenvolvimento:
   ```
 
 ### 4. Testes de Integração com Postgres e SQS Reais (`test:integration`)
-- **Objetivo:** Executa **50 testes** contra banco PostgreSQL e LocalStack reais:
+- **Objetivo:** Executa **57 testes** contra banco PostgreSQL e LocalStack reais:
   - Locks pessimistas (`SELECT ... FOR UPDATE`), constraints de saldo `>= 0` e triggers de imutabilidade do ledger (bloqueio de UPDATE/DELETE).
   - Endpoints HTTP REST (incluindo `POST /wallets/:id/deposit` com suporte a idempotência).
-  - Outbox Publisher com lock `FOR UPDATE SKIP LOCKED` e publicação no SQS FIFO.
+  - Suíte de Conformidade Jungle Gaming (`test/integration/jungle-contract-compliance.test.ts`), validando rotas `/wagering/transactions` e `/transactions`, rota canônica de provedor `GET /providers/:providerId/wagering/transactions/:externalTransactionId` e envelopes SQS `{ type: "WagerTransactionRequested", data: { ... } }`.
+  - Outbox Publisher com lock `FOR UPDATE SKIP LOCKED` e publicação no SQS FIFO (fila isolada por suíte).
   - SQS Consumer com Inbox Pattern (deduplicação atômica, descarte de poison pill para DLQ e graceful shutdown).
   - Pending Reference Resolver (resolução fora de ordem de `WIN` e `REFUND` antes da `BET`).
   - Telemetria e endpoint `/metrics` no formato oficial Prometheus text.
@@ -247,12 +249,12 @@ Durante a execução dos testes ou em ambiente de desenvolvimento ativo, você p
 |---|---|---|:---:|
 | `bun run lint:money` | Valida ausência estrita de float/number em valores | Nenhum | ~0.1s |
 | `bun run typecheck` | Checagem de tipos estrita do TypeScript | Nenhum | ~1.5s |
-| `bun run test` | Suíte unitária (76 testes de domínio e workers) | Nenhum | ~0.5s |
-| `bun run test:integration` | Suíte de integração (50 testes) | Postgres + LocalStack | ~4.5s |
+| `bun run test` | Suíte unitária (84 testes de domínio e workers) | Nenhum | ~0.5s |
+| `bun run test:integration` | Suíte de integração (57 testes) | Postgres + LocalStack | ~4.5s |
 | `bun run test:concurrency` | Suíte de alta concorrência e estresse (9 testes) | Postgres + LocalStack | ~2.0s |
 | `bun run test:multi-instance` | Suíte multi-instância (3 nós Bun x 7 testes) | Postgres + LocalStack | ~12.0s |
-| **`bun run test:all`** | **Pirâmide completa Fail-Fast (142 testes)** | **Postgres + LocalStack** | **~20.0s** |
+| **`bun run test:all`** | **Pirâmide completa Fail-Fast (157 testes)** | **Postgres + LocalStack** | **~20.0s** |
 | **`bun run test:load`** | **Testes de carga e benchmarks oficiais (Fase 10)** | **App rodando (`bun dev`)** | **~25.0s** |
 | `bun run test:load --quick` | Benchmark rápido (2s por cenário) | App rodando (`bun dev`) | ~10.0s |
 | `bun run test:load --ci` | Benchmark enxuto para automação e CI | App rodando (`bun dev`) | ~14.0s |
-| `bun run check` | Validação completa: Lint + Money + Types + Testes | Postgres + LocalStack | ~21.0s |
+| `bun run check` | Validação completa: Lint + Money + Types + 157 Testes | Postgres + LocalStack | ~21.0s |

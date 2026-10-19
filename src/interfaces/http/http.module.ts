@@ -13,6 +13,7 @@ import {
 } from "../../application/use-cases";
 import { createOrmConfig } from "../../infrastructure/persistence/mikro-orm/orm-config";
 import { MikroOrmUnitOfWork } from "../../infrastructure/persistence/repositories/mikro-orm-uow";
+import { ProvidersTransactionsController } from "./controllers/providers-transactions.controller";
 import { TransactionsController } from "./controllers/transactions.controller";
 import { WalletsController } from "./controllers/wallets.controller";
 import { AuthGuard } from "./guards/auth.guard";
@@ -100,7 +101,7 @@ function buildProviders(options?: HttpModuleOptions): Provider[] {
 }
 
 @Module({
-  controllers: [WalletsController, TransactionsController],
+  controllers: [WalletsController, TransactionsController, ProvidersTransactionsController],
   providers: buildProviders(),
   exports: [UNIT_OF_WORK, MIKRO_ORM, AuthGuard],
 })
@@ -112,7 +113,7 @@ export class HttpModule implements NestModule {
   static register(options?: HttpModuleOptions): DynamicModule {
     return {
       module: HttpModule,
-      controllers: [WalletsController, TransactionsController],
+      controllers: [WalletsController, TransactionsController, ProvidersTransactionsController],
       providers: buildProviders(options),
       exports: [UNIT_OF_WORK, MIKRO_ORM, AuthGuard],
     };
