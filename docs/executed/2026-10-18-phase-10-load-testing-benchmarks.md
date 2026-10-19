@@ -317,7 +317,7 @@ sequenceDiagram
 - **NÃO RODAR MIGRATIONS** sem a permissão explícita do usuário.
 - **NUNCA usar `number` ou `float`** para cálculo ou representação financeira de `Money`.
 - Ao finalizar todas as tarefas e comandos, execute:
-  `osascript -e 'display notification "Agenda finalizada com sucesso!" with title "Antigravity" sound name "Glass"'`
+  `osascript -e 'display notification "Agenda finalizada com sucesso!" with title "Jungle Gaming" sound name "Glass"'`
 
 ---
 

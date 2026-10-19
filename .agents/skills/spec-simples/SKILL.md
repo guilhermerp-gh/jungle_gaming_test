@@ -46,7 +46,7 @@ Ao redigir a especificação, preencha as seções essenciais com foco em objeti
 ### 1. Metadados
 - **Versão**: v1.0
 - **Data**: Data atual (DD/MM/YYYY)
-- **Autor**: Identificação do autor ou desenvolvedor
+- **Autor**: Guilherme
 - **Status**: Rascunho / Em Revisão / Aprovado / Em Desenvolvimento / Concluído
 - **Prioridade**: Alta / Média / Baixa
 - **Tipo**: Feature / Ajuste / Correção / Refatoração

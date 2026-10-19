@@ -147,6 +147,10 @@ export function renderPortalLandingView(): string {
       background: linear-gradient(90deg, var(--accent-green), #34d399);
     }
 
+    .card-simulator::before {
+      background: linear-gradient(90deg, var(--accent-purple), var(--accent-cyan));
+    }
+
     .card-metrics::before {
       background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
     }
@@ -158,6 +162,10 @@ export function renderPortalLandingView(): string {
 
     .card-docs:hover {
       box-shadow: 0 20px 35px -10px var(--accent-green-glow);
+    }
+
+    .card-simulator:hover {
+      box-shadow: 0 20px 35px -10px var(--accent-purple-glow);
     }
 
     .card-metrics:hover {
@@ -193,6 +201,12 @@ export function renderPortalLandingView(): string {
       color: var(--accent-green);
     }
 
+    .card-simulator .card-icon {
+      background: rgba(139, 92, 246, 0.12);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      color: var(--accent-purple);
+    }
+
     .card-metrics .card-icon {
       background: rgba(6, 182, 212, 0.12);
       border: 1px solid rgba(6, 182, 212, 0.3);
@@ -218,6 +232,11 @@ export function renderPortalLandingView(): string {
     .card-docs .card-badge {
       background: rgba(16, 185, 129, 0.15);
       color: #6ee7b7;
+    }
+
+    .card-simulator .card-badge {
+      background: rgba(139, 92, 246, 0.15);
+      color: #c4b5fd;
     }
 
     .card-metrics .card-badge {
@@ -257,6 +276,7 @@ export function renderPortalLandingView(): string {
     }
 
     .card-docs .features-list li svg { color: var(--accent-green); }
+    .card-simulator .features-list li svg { color: var(--accent-purple); }
     .card-metrics .features-list li svg { color: var(--accent-cyan); }
 
     .card-footer-action {
@@ -289,6 +309,18 @@ export function renderPortalLandingView(): string {
       background: var(--accent-green);
       color: #022c22;
       box-shadow: 0 4px 14px var(--accent-green-glow);
+    }
+
+    .card-simulator .action-btn {
+      background: rgba(139, 92, 246, 0.15);
+      color: #c4b5fd;
+      border: 1px solid rgba(139, 92, 246, 0.35);
+    }
+
+    .card-simulator:hover .action-btn {
+      background: var(--accent-purple);
+      color: #ffffff;
+      box-shadow: 0 4px 14px var(--accent-purple-glow);
     }
 
     .card-metrics .action-btn {
@@ -383,7 +415,48 @@ export function renderPortalLandingView(): string {
 
     <!-- Main Portals Grid -->
     <main class="options-grid">
-      <!-- Option 1: Glassmorphic Docs -->
+      <!-- Option 1: Visual Wallet Simulator (Playground) -->
+      <a href="/simulator" class="card card-simulator">
+        <div>
+          <div class="card-header">
+            <div class="card-icon">🎰</div>
+            <div class="card-title-group">
+              <h2>Simulador de Jogador &amp; Carteira</h2>
+              <span class="card-badge">Wallet Playground &bull; Zero Burocracia</span>
+            </div>
+          </div>
+          <p class="card-desc">
+            Simulador visual e amigável para testar depósitos, apostas (BET), vitórias (WIN), derrotas e estornos com saldo em tempo real.
+          </p>
+          <ul class="features-list">
+            <li>
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
+              <span><strong>Foco em Saldo &amp; Jogador:</strong> Manipule apenas saldo e IDs; chaves de idempotência e UUIDs são gerados nos bastidores.</span>
+            </li>
+            <li>
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
+              <span><strong>Caixa com Chips Rápidos:</strong> Depósitos imediatos de R$ 20, R$ 50, R$ 100 com lock pessimista no PostgreSQL.</span>
+            </li>
+            <li>
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
+              <span><strong>Mesa de Apostas:</strong> Simule o ciclo completo de aposta, prêmio e estorno (REFUND) automático com 1 clique.</span>
+            </li>
+            <li>
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
+              <span><strong>Auditoria Instantânea:</strong> Verificação contábil ao vivo entre o saldo armazenado e o livro-razão (Ledger).</span>
+            </li>
+          </ul>
+        </div>
+        <div class="card-footer-action">
+          <span class="endpoint-hint">GET /simulator | /playground</span>
+          <span class="action-btn">
+            Abrir Simulador
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+          </span>
+        </div>
+      </a>
+
+      <!-- Option 2: Glassmorphic Docs -->
       <a href="/docs" class="card card-docs">
         <div>
           <div class="card-header">
@@ -424,7 +497,7 @@ export function renderPortalLandingView(): string {
         </div>
       </a>
 
-      <!-- Option 2: Metrics & Observability -->
+      <!-- Option 3: Metrics & Observability -->
       <a href="/dashboard" class="card card-metrics">
         <div>
           <div class="card-header">
@@ -470,6 +543,9 @@ export function renderPortalLandingView(): string {
     <footer class="footer-bar">
       <div class="quick-links">
         <span style="font-weight: 600; color: #cbd5e1;">Atalhos de Sistema:</span>
+        <a href="/simulator">/simulator</a>
+        <a href="/docs">/docs</a>
+        <a href="/dashboard">/dashboard</a>
         <a href="/health/live" target="_blank">/health/live</a>
         <a href="/health/ready" target="_blank">/health/ready</a>
         <a href="/metrics?raw=true" target="_blank">/metrics?raw=true</a>

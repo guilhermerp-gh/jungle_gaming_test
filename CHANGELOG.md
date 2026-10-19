@@ -7,6 +7,52 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [0.12.0] - 19-10-2026
+
+### Resumo Executivo
+
+A versão 0.12.0 introduz o **Simulador Visual de Jogador & Carteira**, uma interface gráfica interativa e intuitiva que permite aos operadores, parceiros e desenvolvedores visualizarem e testarem na prática todo o ciclo financeiro do cassino. Agora é possível criar contas de jogadores em segundos, depositar fundos, realizar apostas e acompanhar a evolução do saldo em tempo real com animações visuais e extrato detalhado de cada movimentação.
+
+Além disso, a plataforma disponibiliza um **Laboratório de Demonstração Interativa**, onde é possível comprovar com apenas um clique a robustez das proteções financeiras: simulação de disputas simultâneas pelo mesmo saldo sem risco de saldo negativo, prevenção automática de cobranças duplicadas em conexões instáveis, bloqueio imediato de tentativas de fraudes em pagamentos e auditoria matemática instantânea de 100% dos lançamentos contábeis.
+
+### ✨ Adicionado
+- **Simulador Visual de Carteira & Jogador (`/simulator`):**
+  - Interface moderna server-rendered em `src/interfaces/http/views/wallet-simulator.view.ts` com design dark glassmorphic, micro-animações e tipografia profissional.
+  - Abertura de conta instantânea com saldo de abertura inicial (`POST /wallets`), troca rápida de contas em `localStorage` e busca manual por UUID (`GET /wallets/:id`).
+  - Caixa de Depósito rápido e customizado com garantia de idempotência e lock pessimista (`POST /wallets/:id/deposit`).
+  - Mesa de Apostas interativa cobrindo o ciclo completo: `BET`, `WIN (2x)`, `LOSS` (sem efeito de saldo) e `REFUND` (estorno de aposta).
+  - Ação e botão de **`ROLLBACK` Técnico:** reversão de transações com inversão da direção contábil da referência (`BET`, `WIN` ou `REFUND`) e validação de invariantes contábeis.
+  - Extrato do Livro-Razão (Ledger) ao vivo com ordenação cronológica decrescente (`GET /wallets/:id/ledger`).
+  - Auditoria contábil com 1 clique (`POST /wallets/:id/reconciliation`) atestando consistência matemática absoluta entre saldo materializado e lançamentos do ledger.
+- **Laboratório Interativo de Concorrência, Idempotência & Resiliência:**
+  - ⚡ **Cenário 1 (Hot-Wallet 100 / 80 / 80 — Seção 8):** Executa 2 apostas concorrentes de R$ 80,00 sobre saldo de R$ 100,00 via `Promise.all`, comprovando 1 aprovada (201), 1 rejeitada (422) e saldo final exato de R$ 20,00.
+  - 🔁 **Cenário 2 (Tempestade de Replay de Idempotência — Seção 7):** Dispara 10 requisições simultâneas com a mesma chave, confirmando 1 criação (201) e 9 replays (200 OK) sem débito duplo.
+  - 💥 **Cenário 3 (Conflito de Idempotência 409 — Seção 6.3):** Reenvia a mesma chave com payload alterado, demonstrando bloqueio mandatório com `409 Conflict`.
+  - ⏳ **Cenário 4 (Fora de Ordem / Pending Reference — Seção 7.1):** Submete vitória antes da aposta correspondente, demonstrando retenção em `202 Accepted` (`PENDING_REFERENCE`) e resolução automática em background.
+  - Console de telemetria e logs em tempo real embutido no simulador com classificação por níveis (`[INFO]`, `[WARN]`, `[SUCCESS]`, `[ERROR]`, `[ACCENT]`).
+- **Integração no Portal & Servidor:**
+  - Card de navegação no Portal Principal (`src/interfaces/http/views/portal-landing.view.ts`) apontando para `/simulator`.
+  - Rota `GET /simulator` exposta em `src/main.ts`.
+
+### 🔄 Modificado
+- Padronização de links de navegação entre Portal (`/`), Swagger Docs (`/docs`), Métricas Prometheus (`/dashboard`) e Simulador (`/simulator`).
+- Elevação de versão SemVer para `0.12.0` no [`package.json`](./package.json).
+
+### 🐛 Corrigido
+- Tratamento resiliente de respostas de erro na interface do simulador, decodificando adequadamente payloads estruturados de erro do backend (`error.code`, `error.message`).
+- Desativação imediata de referências após execução bem-sucedida de estorno/rollback para evitar tentativas de dupla reversão na mesma sessão.
+
+### 🧪 Sugestões de Testes
+- Acessar o Simulador Visual no navegador: `http://localhost:3000/simulator`.
+- Executar os 4 cenários do Laboratório Interativo (Hot-Wallet 100/80/80, Replay Storm, Conflito 409, Pending Reference 202).
+- Testar a ação de **[⏪ Rollback Técnico]** após realizar uma aposta ou vitória.
+- Executar a validação completa de qualidade: `bun run check`.
+- Executar os testes de carga e benchmarks: `bun run test:load --quick`.
+
+📄 [Notas detalhadas da versão](./docs/releases/00.12/00.12.00.md)
+
+---
+
 ## [0.11.0] - 19-10-2026
 
 ### Resumo Executivo

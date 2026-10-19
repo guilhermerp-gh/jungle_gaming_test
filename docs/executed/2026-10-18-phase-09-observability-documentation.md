@@ -284,7 +284,7 @@ Implementar a infraestrutura completa de observabilidade e documentação técni
 - **NÃO RODAR MIGRATIONS** sem a permissão explícita do usuário.
 - **NUNCA usar `number` ou `float`** para cálculo ou representação financeira de `Money`.
 - Ao finalizar todas as tarefas e comandos, execute:
-  `osascript -e 'display notification "Tarefa finalizada" with title "Antigravity" sound name "Glass"'`
+  `osascript -e 'display notification "Tarefa finalizada" with title "Jungle Gaming" sound name "Glass"'`
 
 ---
 

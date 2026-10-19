@@ -10,7 +10,7 @@
 |---|---|
 | **Versão** | v1.0 |
 | **Data** | DD/MM/YYYY |
-| **Autor** | Desenvolvedor |
+| **Autor** | Guilherme |
 | **Status** | Rascunho / Em Revisão / Aprovado / Em Desenvolvimento / Concluído |
 | **Prioridade** | Alta / Média / Baixa |
 | **Tipo** | Feature / Ajuste / Correção / Refatoração |

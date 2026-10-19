@@ -33,6 +33,7 @@ import { setupSwagger } from "./interfaces/http/swagger/swagger.config";
 import { renderApiDocsView } from "./interfaces/http/views/api-docs.view";
 import { renderMetricsDashboardView } from "./interfaces/http/views/metrics-dashboard.view";
 import { renderPortalLandingView } from "./interfaces/http/views/portal-landing.view";
+import { renderWalletSimulatorView } from "./interfaces/http/views/wallet-simulator.view";
 import { WorkersModule } from "./interfaces/workers/workers.module";
 
 @ApiTags("health")
@@ -72,6 +73,13 @@ export class MetricsController {
   @ApiResponse({ status: 200, description: "HTML da Documentação Interativa Glassmorphic" })
   docs(@Res() res: Response): void {
     res.type("html").send(renderApiDocsView());
+  }
+
+  @Get(["simulator", "playground"])
+  @ApiOperation({ summary: "Simulador interativo visual de jogador, carteira e apostas" })
+  @ApiResponse({ status: 200, description: "HTML do Simulador Visual de Jogador e Carteira" })
+  simulator(@Res() res: Response): void {
+    res.type("html").send(renderWalletSimulatorView());
   }
 
   @Get("metrics")
