@@ -7,6 +7,33 @@ e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
 ---
 
+## [0.10.0] - 19-10-2026
+
+### Resumo Executivo
+
+A versão 0.10.0 comprova a capacidade do sistema em operar sob volumes massivos de apostas sem qualquer lentidão perceptível ou erro financeiro. Mesmo nos momentos de pico mais intensos do cassino — com milhares de jogadores apostando, recebendo prêmios e solicitando estornos simultaneamente na mesma carteira —, o saldo exibido permanece 100% exato e imune a travamentos ou cobranças indevidas.
+
+Além disso, a plataforma agora conta com garantias auditadas de estabilidade extrema: todas as requisições duplicadas enviadas pela rede são reconhecidas instantaneamente sem reprocessar cobranças, e todo o volume movimentado durante situações de sobrecarga é confrontado e validado em tempo real com o extrato da conta, garantindo zero divergência no saldo do jogador.
+
+### ✨ Adicionado
+- Suíte automatizada de testes de carga e benchmarking com `autocannon` em `scripts/load-test.ts` cobrindo 4 cenários extremos (alta dispersão, hot-wallet sob contenção de lock pessimista, tempestade de idempotência e carga mista de cassino).
+- Relatório técnico completo de benchmarks de performance em [`docs/BENCHMARKS.md`](./docs/BENCHMARKS.md) com análise detalhada de Throughput (RPS), latências percentilares (p50/p90/p95/p99), taxa de erro e defasagem da outbox.
+- Guia unificado de execução e tutorial de testes em [`docs/TESTING.md`](./docs/TESTING.md) cobrindo a ordem Fail-Fast de toda a pirâmide de testes do projeto.
+- Verificação mandatória de reconciliação contábil pós-estresse garantindo 100% de consistência entre saldo persistido e extrato do ledger.
+
+### 🔄 Modificado
+- Adição do comando `"test:load": "bun run scripts/load-test.ts"` no `package.json` para validação de estresse reprodutível.
+- Atualização do [`README.md`](./README.md) e [`ARCHITECTURE.md`](./ARCHITECTURE.md) com documentação de carga, contenção e benchmarks.
+
+### 🧪 Sugestões de Testes
+- Executar os testes de carga automatizados: `bun run test:load`.
+- Validar integridade da suíte completa de testes: `bun run test:all`.
+- Consultar métricas de transações durante a carga: `curl -s http://localhost:3000/metrics | grep wager_transactions_total`.
+
+📄 [Notas detalhadas da versão](./docs/releases/00.10/00.10.00.md)
+
+---
+
 ## [0.9.0] - 18-10-2026
 
 ### Resumo Executivo

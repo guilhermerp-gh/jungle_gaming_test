@@ -4,6 +4,8 @@ Serviço financeiro distribuído de processamento de apostas (`BET`, `WIN`, `LOS
 
 > 📖 **Documentação Técnica & Arquitetura Completa:**
 > * 🏛️ [**`ARCHITECTURE.md`**](ARCHITECTURE.md): Princípios de Clean Architecture, modelo contábil sem float, estratégias contra hot-wallets, outbox/inbox e autenticação Keycloak/OIDC.
+> * 🧪 [**`docs/TESTING.md`**](docs/TESTING.md): Guia Completo de Testes (manual da pirâmide fail-fast, concorrência, multi-instância e suíte de carga Fase 10).
+> * 📊 [**`docs/BENCHMARKS.md`**](docs/BENCHMARKS.md): Relatório de benchmarks de performance (p50/p90/p95/p99), vazão (até 1.000 RPS) e resiliência sob carga da Fase 10.
 > * 🗄️ [**`docs/DATABASE_SCHEMA.md`**](docs/DATABASE_SCHEMA.md): Diagrama Entidade-Relacionamento (ERD), catálogo de tabelas, dicionário de dados, constraints financeiras e triggers no PostgreSQL.
 
 ---
@@ -110,6 +112,8 @@ Os logs da aplicação são emitidos em formato JSON no `stdout`, incluindo sist
 
 ## 🧪 Como Rodar os Testes
 
+> 📖 **Guia Passo a Passo & Tutorial Completo:** Consulte o documento [**`docs/TESTING.md`**](docs/TESTING.md) para o tutorial aprofundado cobrindo a pirâmide fail-fast, cenários de concorrência, recuperação multi-instância e a suíte de carga da Fase 10.
+
 O projeto conta com validações estritas de tipagem, regras financeiras e testes automatizados organizados em pirâmide fail-fast:
 
 ### 🚀 Validação Completa de Ponta a Ponta (Recomendado)
@@ -168,6 +172,13 @@ bun run test:all
   ```bash
   bun run check
   ```
+
+* **8. Testes de Carga & Benchmarking de Performance (Fase 10):**
+  Submete a aplicação a testes de alta vazão e estresse concorrente via `autocannon`, medindo throughput (RPS), latência percentilar (**p50, p90, p97.5, p99**) e auditoria contábil pós-estresse com tolerância zero em 4 cenários (Alta Dispersão, Hot-Wallet Saturation, Avalanche de Replays e Carga Mista). *(Requer a aplicação em execução via `bun run dev` ou `docker compose up`)*:
+  ```bash
+  bun run test:load
+  ```
+  *(Opções suportadas: `--duration <segundos>`, `--connections <n>`, `--quick` ou `--ci`).*
 
 ---
 

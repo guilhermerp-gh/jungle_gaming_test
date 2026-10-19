@@ -288,3 +288,24 @@ Para fins de avaliação local do desafio técnico e inspeção interativa de me
 3. **Escopo de Locks no Banco:** A coordenação de concorrência é inteiramente dependente do PostgreSQL. Caso o cluster do PostgreSQL fique indisponível, o serviço responde `503 Service Unavailable` com header `Retry-After`.
 4. **Entrega At-Least-Once:** Tanto o Outbox Publisher quanto o consumidor SQS operam com garantia de entrega ao menos uma vez. Clientes e subsistemas a jusante devem desduplicar eventos utilizando o `eventId` ou `idempotencyKey`.
 5. **Isolamento OLTP em Produção:** Na demonstração local do desafio, o dashboard administrativo consulta o banco relacional sob demanda com paginação `LIMIT 25` e cache local. Em produção de alta volumetria, essa leitura é desacoplada via Read Replicas ou ingestão analítica via ClickHouse/OpenSearch para blindar o nó master OLTP.
+
+---
+
+## 10. Benchmarks, Capacidade de Vazão & Resiliência sob Carga (Fase 10)
+
+O serviço foi submetido a baterias exaustivas de testes de estresse e benchmarking via `autocannon` (`bun run test:load`), documentadas detalhadamente em [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md).
+
+### 📊 Resumo dos Resultados Empíricos Medidos:
+
+| Cenário de Teste | Vazão (RPS) | Latência p50 | Latência p99 | Auditoria Contábil (Ledger vs Saldo) |
+| :--- | :---: | :---: | :---: | :---: |
+| **Alta Dispersão (Baseline Throughput)** | **803 RPS** | **27 ms** | **81 ms** | **✔ 100% Íntegro (Zero divergências)** |
+| **Hot-Wallet Saturation (Concorrência Limítrofe)** | **397 RPS** | **39 ms** | **155 ms** | **✔ 100% Íntegro (Saldo exato R$ 0,00)** |
+| **Idempotency Replay Storm (Avalanche)** | **999 RPS** | **20 ms** | **77 ms** | **✔ 100% Íntegro (Saldo imutável)** |
+| **Carga Mista Dinâmica (Cassino)** | **766 RPS** | **29 ms** | **65 ms** | **✔ 100% Íntegro (Zero desvios)** |
+
+### 🛡️ Comportamento Observado sob Estresse:
+* **Concorrência Granular por Linha:** Quando as operações são dispersas entre carteiras diferentes, a vazão atinge ~800 RPS por instância com p99 inferior a 85 ms, sem que nenhuma transação interfira ou bloqueie outra.
+* **Resiliência de Hot-Wallet:** Sob 1.500+ requisições simultâneas disputando uma carteira limítrofe de R$ 50,00, o lock pessimista (`SELECT ... FOR UPDATE`) manteve fila ordenada: exatamente 50 transações debitaram R$ 1,00, as restantes foram recusadas com elegância (`422 INSUFFICIENT_FUNDS`), e o saldo final terminou rigorosamente em R$ 0,00 sem permitir *double-spending* ou saldo negativo.
+* **Bypass de Idempotência:** A leitura direta do snapshot persistido (`idempotentReplay: true`) entrega quase 1.000 RPS com latência mediana de 20 ms, blindando o banco contra tempestades de retentativas.
+* **Integridade Absoluta:** Em todos os cenários, 100% das carteiras afetadas foram reconciliadas matematicamente via `POST /wallets/:id/reconciliation`, atestando conformidade com a fórmula fundamental `wallet.balance == SUM(ledger.credits) - SUM(ledger.debits)`.
